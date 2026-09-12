@@ -1,4 +1,4 @@
-"""lifecycle.py — 项目生命周期状态机硬拦截（rule 63 · v3.9.13）
+"""lifecycle.py — 项目生命周期状态机硬拦截（rule 63 · 框架对齐 v3.16.0；自 v3.9.13 起）
 
 五态：INIT → EXECUTING → DELIVERED → (REOPENED | ACCEPTED)
 转移表（非法转移一律拒绝 + 审计记录）：
@@ -120,7 +120,18 @@ def cmd_history(root: Path):
         print(f"  {h}")
 
 
+def _force_utf8_stdio():
+    """stdio 加固（v3.16.0）：Windows 控制台默认 GBK，报告里的 ✓/✗ 会 UnicodeEncodeError
+    直接崩掉输出（2026-09-12 实跑实测：transit 成功路径必崩）。errors=replace 兜底。"""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
 def main():
+    _force_utf8_stdio()
     args = sys.argv[1:]
     if len(args) < 2:
         print(__doc__)

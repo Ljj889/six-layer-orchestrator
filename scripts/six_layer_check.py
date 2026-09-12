@@ -1,4 +1,4 @@
-"""six_layer_check.py — 六层框架合规检查（rule 64 硬约束优先 · v3.9.12 新增）
+"""six_layer_check.py — 六层框架合规检查（rule 64 硬约束优先 · 框架对齐 v3.16.0；自 v3.9.12 起）
 
 来源：galagame 实战教训（2026-09-01）——调用 skill 但骨架流程被跳过
 （无 Phase 0.5 / 无 Phase 7 蒸馏 / 无 lessons/cost_log），知识库零产出。
@@ -26,14 +26,34 @@
       - CSS Modules/CSS-in-JS 共存 → WARN 不阻断（类名 hash 误报防护，红队裁决）
       - Tier B product-assert.json：[{"file": "dist/...*", "contains": "字面量"}] 断言通道名等
       - --force-with-reason=理由 留痕跳过（无 reason 跳过 = Red Flag）；产物陈旧告警
+      - v3.16.0 增时序与稳定性：打包进程探针 / 产物尺寸两次采样 / zip>asar 归档时序
 
-退出码：0=检查完成（非 strict） / 1=有缺失（strict） / 2=目录不存在
+    python six_layer_check.py active-tree <候选目录1> [候选目录2 ...] [--userdata=<路径>] [--json] [--strict]
+    - 活跃树判定四证据（rule 82 ① · v3.16.0 新增 · 2026-09-12 番茄宠物V2 实战）：
+      接手交接文档 / 多棵候选树时，判断"哪棵树才是真正在跑的活跃树"——
+      ① 最近提交时间（git log --date=iso）② 构建产物/可执行文件 mtime
+      ③ 运行时痕迹（%APPDATA%\\<app> 下 db/日志 mtime —— 决定性证据）
+      ④ 依赖与分发链路（node_modules / distribution / electron-builder extraResources）
+      - 给 ≥2 个目录 → 附对比判定行（谁有运行时痕迹谁是活跃树）
+      - 判据与文档冲突时**以磁盘为准**，向用户一句话确认后再动手（rule 82 红线）
+      - --userdata=<路径>：显式指定 userData 目录（默认从 package.json 推断 name/productName/appId）
+
+变更史：
+    v3.9.12 初版（galagame 教训：调用 skill 但骨架流程被跳过）
+    v3.14.0 增 render-silent-fail（rule 79 五项静默失效检查）
+    v3.14.1 增 product-assert（rule 79 第六项产物级断言）
+    v3.16.0 增 active-tree（rule 82 ① 四证据）+ product-assert 时序与稳定性（打包进程/两次采样/
+            zip>asar）+ 产物目录选择兼容 dist-v3 / dist-v4 这类带后缀命名 + 报告头带运行时探针行
+
+退出码：0=检查完成（非 strict） / 1=有缺失或 strict 判定不达标 / 2=目录不存在
 """
 import json
 import os
 import re
 import subprocess
 import sys
+import time
+from datetime import datetime
 from pathlib import Path
 
 # 检查项定义：(key, 名称, 目标路径/glob, 阶段, 说明)
@@ -155,15 +175,27 @@ def render_report(res: dict) -> str:
 
 _SCAN_EXCLUDES = {"node_modules", ".git", "dist", "build", "out", "release",
                   "coverage", ".workbuddy", "archive", "__pycache__"}
+# 前缀剪枝（v3.16.0 噪音治理）：out-old-2026…/out-rt4/dist-v3/dist-v4/tmp_memtest 这类
+# 历史产物与临时目录不进源码遍历——rule 79 v3.15.0 实测：它们混入 tailwind content 比较域，
+# 使 FAIL 列表充满噪音、真问题被淹没。
+_SCAN_EXCLUDE_PREFIXES = ("dist", "out", "build", "release", "coverage", "tmp", "temp",
+                          "archive", "old", "bak")
 _SRC_EXTS = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".vue", ".svelte"}
+_UI_EXTS = {".tsx", ".jsx", ".html", ".vue", ".svelte", ".css"}
+
+
+def _is_scan_excluded(name: str) -> bool:
+    """剪枝判定：精确名 + 前缀 + 点目录"""
+    if name in _SCAN_EXCLUDES or name.startswith("."):
+        return True
+    return name.lower().startswith(_SCAN_EXCLUDE_PREFIXES)
 
 
 def _walk_src(root: Path):
-    """遍历源码文件（剪枝 node_modules/dist 等），yield (Path, 相对posix路径)"""
+    """遍历源码文件（剪枝 node_modules/dist*/out-*/tmp* 等），yield (Path, 相对posix路径)"""
     for dirpath, dirnames, filenames in os.walk(root):
         rel = Path(dirpath).relative_to(root)
-        dirnames[:] = [d for d in dirnames
-                       if d not in _SCAN_EXCLUDES and not d.startswith(".")]
+        dirnames[:] = [d for d in dirnames if not _is_scan_excluded(d)]
         for fn in filenames:
             yield Path(dirpath) / fn, (rel / fn).as_posix() if str(rel) != "." else fn
 
@@ -271,6 +303,17 @@ def _check_vite_input(root: Path) -> dict:
             "detail": f"{len(htmls)} 个入口均已登记"}
 
 
+def _ui_dirs(root: Path) -> set:
+    """UI 目录（含 .tsx/.jsx/.html/.vue/.svelte/.css）——tailwind content 的比较域。
+    排除 scripts/、tools/、纯 .ts 目录：rule 79 v3.15.0 实测噪音源（非 UI 目录混入比较域）。"""
+    ui = set()
+    for _, relp in _walk_src(root):
+        if Path(relp).suffix.lower() in _UI_EXTS:
+            parent = str(Path(relp).parent.as_posix())
+            ui.add(parent if parent != "." else ".")
+    return ui
+
+
 def _check_tailwind_content(root: Path, src_dirs: set) -> dict:
     name = "tailwind content 覆盖源码目录"
     cfg_path = None
@@ -297,14 +340,31 @@ def _check_tailwind_content(root: Path, src_dirs: set) -> dict:
         return {"key": "tailwind", "name": name, "status": "SKIP",
                 "detail": "配置中未解析到 content 数组（可能用 preset），需人工确认"}
     pats = re.findall(r"['\"`]([^'\"`]+)['\"`]", m.group(1))
-    code_dirs = sorted(d for d in src_dirs if d != ".")
+    code_dirs = sorted(d for d in _ui_dirs(root) if d != ".")   # UI 比较域（剪枝 scripts/tools/产物目录噪音）
     uncovered = [d for d in code_dirs if not any(_glob_covers(p, d) for p in pats)]
     if uncovered:
         return {"key": "tailwind", "name": name, "status": "FAIL",
-                "detail": "以下目录不在 content 覆盖内（UI 样式静默丢失，硬伤2 三轮根因）: "
-                          + ", ".join(uncovered) + f"（当前 {len(pats)} 个模式：{'; '.join(pats)}）"}
+                "detail": "以下 UI 目录不在 content 覆盖内（UI 样式静默丢失，硬伤2 三轮根因）: "
+                          + ", ".join(uncovered) + f"（当前 {len(pats)} 个模式：{'; '.join(pats)}）"
+                          + "；已按 v3.16.0 剪枝 dist*/out-*/tmp*/build* 类噪音"}
     return {"key": "tailwind", "name": name, "status": "PASS",
             "detail": f"{len(pats)} 个 content 模式覆盖 {len(code_dirs)} 个源码目录"}
+
+
+# DOM 标准成员（window.document/location…）与浏览器构造器（window.HTMLInputElement…）不是 preload
+# 命名空间——计入会制造"狼来了"误报（rule 79 v3.15.0：误报一次开发者永久 --skip）。
+_DOM_WINDOW_MEMBERS = {
+    "document", "location", "navigator", "history", "screen", "frames", "parent", "top", "self",
+    "window", "globalThis", "console", "performance", "crypto", "localStorage", "sessionStorage",
+    "indexedDB", "innerWidth", "innerHeight", "outerWidth", "outerHeight", "devicePixelRatio",
+    "scrollX", "scrollY", "pageXOffset", "pageYOffset", "setTimeout", "setInterval",
+    "clearTimeout", "clearInterval", "requestAnimationFrame", "cancelAnimationFrame",
+    "getComputedStyle", "matchMedia", "fetch", "alert", "confirm", "prompt", "open", "close",
+    "addEventListener", "removeEventListener", "dispatchEvent", "focus", "blur", "print", "stop",
+}
+_DOM_CTOR_RE = re.compile(
+    r"^(?:HTML|SVG|CSS|DOM|XML|Math|JSON|Intl|WebGL|Audio|Image|Text|Element|Node|Event|Path|"
+    r"URL|File|Blob|FormData|Date|RegExp|Request|Response|Headers|Abort|Message|Worker)")
 
 
 def _check_preload_dts(root: Path) -> dict:
@@ -337,10 +397,12 @@ def _check_preload_dts(root: Path) -> dict:
             declared.add(mm.group(1))
         for mm in re.finditer(r"(?:readonly\s+)?(\w+)\s*[:(]", txt):
             declared.add(mm.group(1))
-    missing = sorted(r for r in refs if r not in declared)
+    missing = sorted(r for r in refs if r not in declared
+                     and r not in _DOM_WINDOW_MEMBERS and not _DOM_CTOR_RE.match(r))
     if missing:
         return {"key": "preload", "name": name, "status": "FAIL",
-                "detail": "以下 window.* 命名空间未在任何 d.ts 中声明: " + ", ".join(missing)}
+                "detail": "以下 window.* 命名空间未在任何 d.ts 中声明: " + ", ".join(missing)
+                          + "（DOM 标准成员/构造器已白名单排除）"}
     return {"key": "preload", "name": name, "status": "PASS",
             "detail": f"{len(refs)} 个 window.* 命名空间均有声明（{len(dts_files)} 个 d.ts）"}
 
@@ -437,10 +499,10 @@ def _latest_mtime(root: Path, dirs, exts=None) -> float:
     latest = 0.0
     for dirpath, dirnames, filenames in os.walk(root):
         rel_parts = Path(dirpath).relative_to(root).parts
-        if any(p in _SCAN_EXCLUDES for p in rel_parts):
+        if any(_is_scan_excluded(p) for p in rel_parts):
             dirnames[:] = []
             continue
-        dirnames[:] = [d for d in dirnames if d not in _SCAN_EXCLUDES]
+        dirnames[:] = [d for d in dirnames if not _is_scan_excluded(d)]
         for fn in filenames:
             if exts and Path(fn).suffix.lower() not in exts:
                 continue
@@ -483,20 +545,179 @@ def _class_in_css(css_text: str, cls: str) -> bool:
     return esc in css_text
 
 
+# ---------- 时序与稳定性（rule 79 第六项 · v3.16.0 扩展） ----------
+# 来源：2026-09-12 番茄宠物V2 打包实战——打包**进行中**采样会拿到中间态
+# （实测 asar 274→287MB / zip 256→268MB 变化中），据此下结论 = 假证据。
+# 三条断言：① 打包进程探针（app-builder/7za/makensis 还在跑 → 别断言）
+#          ② 产物尺寸两次采样必须相等（不等 = 中间态 → 断言无效）
+#          ③ zip/安装器 mtime > asar mtime（归档装的是最终产物，否则是坏包）
+
+_PACK_PROCESSES = ("app-builder.exe", "7za.exe", "7z.exe", "makensis.exe", "makensisw.exe")
+_ARCHIVE_EXTS = {".zip", ".7z", ".msi", ".dmg", ".appimage", ".nsis"}
+
+
+def _fmt_mtime(m: float) -> str:
+    return datetime.fromtimestamp(m).strftime("%m-%d %H:%M:%S") if m else "-"
+
+
+def _pack_processes() -> tuple:
+    """探测打包进程：返回 (status, [进程名])；无法探测 → SKIP（不静默当 PASS）"""
+    try:
+        if os.name == "nt":
+            r = subprocess.run(["tasklist", "/FO", "CSV", "/NH"], capture_output=True,
+                               text=True, timeout=20, encoding="utf-8", errors="replace")
+            if r.returncode != 0:
+                return "SKIP", []
+            low = (r.stdout or "").lower()
+            hits = [p for p in _PACK_PROCESSES if p in low]
+            return ("WARN", hits) if hits else ("PASS", [])
+        r = subprocess.run(["ps", "-eo", "comm"], capture_output=True, text=True, timeout=10,
+                           encoding="utf-8", errors="replace")
+        low = (r.stdout or "").lower()
+        hits = [p for p in ("app-builder", "7za", "makensis") if p in low]
+        return ("WARN", hits) if hits else ("PASS", [])
+    except Exception:
+        return "SKIP", []
+
+
+def _tree_size(root: Path) -> tuple:
+    """(总字节, 文件数, 最新 mtime)——产物尺寸采样用（rule 79 两次采样）"""
+    total = 0
+    count = 0
+    newest = 0.0
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+        for fn in filenames:
+            try:
+                st = (Path(dirpath) / fn).stat()
+            except OSError:
+                continue
+            total += st.st_size
+            count += 1
+            newest = max(newest, st.st_mtime)
+    return total, count, newest
+
+
+def _find_archives(prod_dir: Path) -> list:
+    """归档类产物（zip/7z/msi/dmg/安装器 exe）；排除 *-unpacked/ 下的应用主程序"""
+    out = []
+    for f in prod_dir.rglob("*"):
+        if not f.is_file():
+            continue
+        suf = f.suffix.lower()
+        if suf in _ARCHIVE_EXTS:
+            out.append(f)
+        elif suf == ".exe" and "unpacked" not in str(f).lower():
+            out.append(f)
+    return out
+
+
+def _check_pack_timing(prod_dir: Path) -> list:
+    """rule 79 第六项 · v3.16.0：时序与稳定性三项断言（返回 items 片段）"""
+    items = []
+    # ① 打包进程探针
+    st, procs = _pack_processes()
+    if st == "WARN":
+        items.append({"key": "pack_proc", "name": "打包进程探针", "status": "WARN",
+                      "detail": f"检测到打包进程仍在运行（{', '.join(procs)}）——等打包退出再断言，"
+                                f"否则拿到的是中间态"})
+    elif st == "PASS":
+        items.append({"key": "pack_proc", "name": "打包进程探针", "status": "PASS",
+                      "detail": "无打包进程在跑"})
+    else:
+        items.append({"key": "pack_proc", "name": "打包进程探针", "status": "SKIP",
+                      "detail": "无法探测（tasklist/ps 不可用）——需人工确认打包已退出"})
+    # ② 尺寸两次采样（不等 = 中间态 = 断言无效）
+    s1 = _tree_size(prod_dir)
+    time.sleep(0.8)
+    s2 = _tree_size(prod_dir)
+    if s1[:2] != s2[:2]:
+        items.append({"key": "stability", "name": "产物稳定性（两次采样）", "status": "FAIL",
+                      "detail": f"产物仍在变化：采样1={s1[0]}B/{s1[1]}文件 → 采样2={s2[0]}B/{s2[1]}文件"
+                                f"——断言的是中间态，结论无效；等打包结束重跑"})
+    else:
+        items.append({"key": "stability", "name": "产物稳定性（两次采样）", "status": "PASS",
+                      "detail": f"两次采样一致（{s2[0]}B / {s2[1]} 文件）"})
+    # ③ zip > asar 归档时序
+    asars = [f for f in prod_dir.rglob("app.asar") if f.is_file()]
+    archives = _find_archives(prod_dir)
+    if asars and archives:
+        a_m = max(f.stat().st_mtime for f in asars)
+        z = max(archives, key=lambda f: f.stat().st_mtime)
+        z_m = z.stat().st_mtime
+        if z_m < a_m:
+            items.append({"key": "time_order", "name": "归档时序（zip > asar）", "status": "FAIL",
+                          "detail": f"归档（{z.name} {_fmt_mtime(z_m)}）早于 asar（{_fmt_mtime(a_m)}）"
+                                    f"——归档装的是旧产物 = 坏包；重跑完整打包流水线"})
+        else:
+            items.append({"key": "time_order", "name": "归档时序（zip > asar）", "status": "PASS",
+                          "detail": f"{z.name} {_fmt_mtime(z_m)} > app.asar {_fmt_mtime(a_m)}"})
+    else:
+        items.append({"key": "time_order", "name": "归档时序（zip > asar）", "status": "SKIP",
+                      "detail": f"缺一侧（asar={len(asars)} 归档={len(archives)}）——仅 unpacked 时跳过"})
+    return items
+
+
+def _pick_prod_dir(root: Path):
+    """选产物目录，返回 (可交付产物目录 | None, CSS 扫描目录 | None, [全部候选名])。
+
+    规则（2026-09-12 实战暴露两处误选后定）：
+    - 候选 = 精确名（dist/build/out/release）+ 带后缀命名（dist-v3/dist-v4/build-win…），
+      排除 distribution/（只有预置文件）；旧版只认精确名 → dist-v3/dist-v4 误报 SKIP。
+    - **可交付产物优先**：含 .exe/.asar/.zip 等打包件的目录 > 纯构建输出目录（out/ 这类
+      electron-vite 中间产物不应盖过 dist/ 里的安装包）；同级取最新。
+    - **CSS 单独选**：Tier A 断言要 grep 文本 CSS，asar 内的 CSS 不可读 →
+      在含 .css 的候选中取最新（可交付目录与 CSS 目录可不同，报告里分别标注）。"""
+    pkg_exts = {".exe", ".asar", ".zip", ".7z", ".msi", ".dmg", ".appimage"}
+    art_exts = pkg_exts | {".js", ".css", ".html"}
+    cands = []
+    for d in root.iterdir():
+        if not d.is_dir() or d.name.startswith("."):
+            continue
+        n = d.name.lower()
+        if n in ("distribution", "distribute", "dist-src"):
+            continue
+        if not (n in _PROD_DIRS or n.startswith("dist") or n.startswith("build")
+                or n.startswith("release") or n.startswith("out-")):
+            continue
+        newest, has_pkg, has_css = 0.0, False, False
+        for dirpath, dirnames, filenames in os.walk(d):
+            dirnames[:] = [x for x in dirnames if x not in _SCAN_EXCLUDES and not x.startswith(".")]
+            for fn in filenames:
+                p = Path(dirpath) / fn
+                suf = p.suffix.lower()
+                if suf not in art_exts:
+                    continue
+                try:
+                    newest = max(newest, p.stat().st_mtime)
+                except OSError:
+                    continue
+                if suf in pkg_exts:
+                    has_pkg = True
+                if suf == ".css":
+                    has_css = True
+        if newest > 0.0:
+            cands.append({"path": d, "m": newest, "pkg": has_pkg, "css": has_css})
+    if not cands:
+        return None, None, []
+    names = sorted(c["path"].name for c in cands)
+    pool = [c for c in cands if c["pkg"]] or cands
+    prod = max(pool, key=lambda c: (c["m"], c["path"].name))
+    css_pool = [c for c in cands if c["css"]] or [prod]
+    css_dir = max(css_pool, key=lambda c: (c["m"], c["path"].name))["path"]
+    return prod["path"], css_dir, names
+
+
 def check_product_assert(project_dir: str) -> dict:
     """产物级断言（rule 79 第六项）：build 产物 grep 断言。纯 Tailwind 硬阻断，共存 WARN。"""
     root = Path(project_dir)
     if not root.is_dir():
         return {"ok": False, "error": f"目录不存在: {project_dir}"}
-    prod_dir = None
-    for d in _PROD_DIRS:
-        if (root / d).is_dir():
-            prod_dir = root / d
-            break
+    prod_dir, css_dir, prod_cands = _pick_prod_dir(root)
     if prod_dir is None:
         return {"ok": True, "root": str(root), "mode": "product-assert", "forced_skip": None,
                 "items": [{"key": "product", "name": "构建产物目录", "status": "SKIP",
-                           "detail": "未找到 dist/build/out/release——先 build 再断言"}],
+                           "detail": "未找到 dist*/build*/out*/release*/ 产物目录——先 build 再断言"}],
                 "fail_count": 0, "skip_count": 1, "warn_count": 0}
 
     items = []
@@ -509,18 +730,21 @@ def check_product_assert(project_dir: str) -> dict:
     if src_mtime and prod_mtime and prod_mtime < src_mtime:
         items.append({"key": "stale", "name": "产物新鲜度", "status": "WARN",
                       "detail": "产物目录早于源码修改（陈旧产物）——先重新 build 再断言，否则断言的是旧产物"})
+    if len(prod_cands) > 1:
+        others = [n for n in prod_cands if n not in (prod_dir.name, css_dir.name)]
+        items.append({"key": "pick", "name": "产物目录选择", "status": "PASS",
+                      "detail": f"可交付产物选 {prod_dir.name}/"
+                                + (f"；CSS 扫描 {css_dir.name}/" if css_dir and css_dir != prod_dir else "")
+                                + (f"；其他候选：{', '.join(others)}" if others else "")})
+    # v3.16.0：时序与稳定性（打包进程 / 两次采样 / zip>asar）——打包进行中采样 = 假证据
+    items.extend(_check_pack_timing(prod_dir))
 
+    # Tier A 的 CSS 文本从 css_dir 读（asar 内的 CSS 不可读；可交付目录与 CSS 目录可不同）
     css_text = ""
-    css_files = list(prod_dir.rglob("*.css"))
+    css_files = list(css_dir.rglob("*.css")) if css_dir else []
     for f in css_files:
         try:
             css_text += f.read_text(encoding="utf-8", errors="ignore")
-        except Exception:
-            pass
-    all_prod_text = css_text
-    for f in prod_dir.rglob("*.js"):
-        try:
-            all_prod_text += f.read_text(encoding="utf-8", errors="ignore")
         except Exception:
             pass
 
@@ -546,7 +770,13 @@ def check_product_assert(project_dir: str) -> dict:
         else:
             expected = _extract_expected_classes(root)
             missing = sorted(c for c in expected if not _class_in_css(css_text, c))
-            if len(missing) >= 3:
+            if not expected:
+                # 空洞 PASS 识别（rule 79 v3.15.0）：抽到 0 个期望类时"全部命中"是无信息量通过
+                items.append({"key": "tier_a", "name": "Tailwind 产物断言（Tier A）", "status": "WARN",
+                              "detail": f"抽到 0 个期望 utility 类 = 空洞 PASS（无信息量通过视为未验证）"
+                                        f"——CSS 扫描目录 {css_dir.name}/ 可能不含应用样式；"
+                                        f"补独立取证：建 product-assert.json（Tier B）或人工 grep 产物 CSS"})
+            elif len(missing) >= 3:
                 items.append({"key": "tier_a", "name": "Tailwind 产物断言（Tier A · 纯 Tailwind 硬 Gate）", "status": "FAIL",
                               "detail": f"产物 CSS 缺失 {len(missing)} 个源码引用的 utility 类（样式静默丢失）："
                                         + ", ".join(missing[:10]) + ("…" if len(missing) > 10 else "")})
@@ -555,7 +785,7 @@ def check_product_assert(project_dir: str) -> dict:
                               "detail": f"{len(expected)} 个期望类中 {len(missing)} 个未命中（<3 视为噪声）: " + ", ".join(missing)})
             else:
                 items.append({"key": "tier_a", "name": "Tailwind 产物断言（Tier A）", "status": "PASS",
-                              "detail": f"{len(expected)} 个期望 utility 类全部命中产物 CSS"})
+                              "detail": f"{len(expected)} 个期望 utility 类全部命中产物 CSS（{css_dir.name}/）"})
 
     # Tier B：作者声明清单（product-assert.json）
     pa_file = root / "product-assert.json"
@@ -596,7 +826,7 @@ def check_product_assert(project_dir: str) -> dict:
 
 
 def render_product_assert_report(res: dict) -> str:
-    lines = [f"[six_layer_check] 项目: {res['root']}  模式: {res['mode']}（产物级断言 · rule 79 v3.14.1）"]
+    lines = [f"[six_layer_check] 项目: {res['root']}  模式: {res['mode']}（产物级断言 · rule 79 v3.16.0）"]
     for it in res["items"]:
         mark = {"PASS": "✓", "FAIL": "✗", "SKIP": "-", "WARN": "!"}.get(it["status"], "?")
         lines.append(f"  {mark} [{it['status']:4s}] {it['name']}  <-  {it['detail']}" if it["status"] != "PASS"
@@ -606,36 +836,292 @@ def render_product_assert_report(res: dict) -> str:
     if res["fail_count"]:
         lines.append(f"✗ 产物断言 {res['fail_count']} 项 FAIL——build 绿 ≠ 产物真的含所需内容（交付 Gate 阻断）")
         lines.append("→ 修复对照 references/symptom_triage.md 卡2；确认无样式需求可 --force-with-reason=理由 留痕跳过")
+    elif res["warn_count"]:
+        lines.append(f"⚠ 无 FAIL，但有 {res['warn_count']} 项 WARN（空洞 PASS / 中间态 / 共存降级）——"
+                     f"按 rule 42 视为未验证：补独立取证，或 --force-with-reason=理由 留痕")
     else:
-        lines.append(f"✓ 产物断言通过（FAIL 0 / WARN {res['warn_count']} / SKIP {res['skip_count']}）")
+        lines.append(f"✓ 产物断言通过（FAIL 0 / WARN 0 / SKIP {res['skip_count']}）")
     return "\n".join(lines)
 
 
+# ---------- 活跃树判定四证据（rule 82 ① · v3.16.0 新增） ----------
+# 来源：2026-09-12 番茄宠物V2 实战——交接文档写"活跃目录是独立版、根级是旧备份"，
+# 磁盘四证据全指向相反（根级当天 4 个提交 + 09:53 的 exe + %APPDATA% 有运行痕迹；
+# 独立版源码停在三周前、对应 userData 不存在）。若照文档执行，10 个修复全打在死树上且不报错。
+# 本子命令把"接手那一刻的四证据判定"引擎化；判据与文档冲突 → 以磁盘为准（rule 82 红线）。
+
+def _git_last_commit(root: Path) -> dict:
+    try:
+        r = subprocess.run(["git", "-C", str(root), "log", "-1", "--date=iso",
+                            "--format=%h|%ad|%s"], capture_output=True, text=True, timeout=10,
+                           encoding="utf-8", errors="replace")
+        if r.returncode != 0:
+            return {"ok": False, "detail": "非 git 仓库或无提交"}
+        parts = ((r.stdout or "").strip().split("|", 2) + ["", "", ""])[:3]
+        return {"ok": bool(parts[0]), "detail": f"{parts[1]} {parts[0]} {parts[2][:60]}"}
+    except Exception:
+        return {"ok": False, "detail": "git 不可用"}
+
+
+def _latest_product(root: Path) -> dict:
+    """② 构建产物/可执行文件 mtime"""
+    best, best_m = None, 0.0
+    dirs = []
+    for d in (root.iterdir() if root.is_dir() else []):
+        if not d.is_dir() or d.name.startswith("."):
+            continue
+        n = d.name.lower()
+        if n in ("distribution",):
+            continue
+        if n in _PROD_DIRS or n.startswith("dist") or n.startswith("build") or n.startswith("release"):
+            dirs.append(d)
+    for d in dirs:
+        for dirpath, dirnames, filenames in os.walk(d):
+            dirnames[:] = [x for x in dirnames if x not in _SCAN_EXCLUDES and not x.startswith(".")]
+            for fn in filenames:
+                if Path(fn).suffix.lower() in {".exe", ".asar", ".zip", ".7z", ".msi", ".dmg", ".appimage"}:
+                    try:
+                        m = (Path(dirpath) / fn).stat().st_mtime
+                    except OSError:
+                        continue
+                    if m > best_m:
+                        best, best_m = (Path(dirpath) / fn), m
+    return {"ok": best is not None, "path": str(best) if best else None, "mtime": best_m,
+            "dirs": [d.name for d in dirs]}
+
+
+def _app_names(root: Path) -> list:
+    """userData 目录名候选：package.json 的 name / productName / build.productName / appId 末段"""
+    names = []
+    pj = root / "package.json"
+    if pj.exists():
+        try:
+            j = json.loads(pj.read_text(encoding="utf-8"))
+        except Exception:
+            j = {}
+        build = j.get("build") if isinstance(j.get("build"), dict) else {}
+        for v in (j.get("name"), j.get("productName"), build.get("productName"),
+                  j.get("appId"), build.get("appId")):
+            if isinstance(v, str) and v.strip():
+                names.append(v.strip())
+        aid = build.get("appId") or j.get("appId")
+        if isinstance(aid, str) and "." in aid:
+            names.append(aid.rsplit(".", 1)[-1])
+    seen, out = set(), []
+    for n in names:
+        if n not in seen:
+            seen.add(n)
+            out.append(n)
+    return out
+
+
+def _userdata_evidence(root: Path, override: str = None) -> dict:
+    """③ 运行时痕迹（决定性证据）：%APPDATA%/<app> 下文件最新 mtime"""
+    bases = [Path(override)] if override else []
+    if not bases:
+        appdata = os.environ.get("APPDATA")
+        local = os.environ.get("LOCALAPPDATA")
+        for nm in _app_names(root):
+            if appdata:
+                bases.append(Path(appdata) / nm)
+            if local:
+                bases.append(Path(local) / nm)
+    for b in bases:
+        if not b.is_dir():
+            continue
+        newest, newest_f, n_files = 0.0, None, 0
+        for dirpath, dirnames, filenames in os.walk(b):
+            dirnames[:] = [x for x in dirnames if not x.startswith(".")]
+            for fn in filenames:
+                p = Path(dirpath) / fn
+                try:
+                    m = p.stat().st_mtime
+                except OSError:
+                    continue
+                n_files += 1
+                if m > newest:
+                    newest, newest_f = m, p
+        if n_files:
+            return {"ok": True, "path": str(b), "newest": str(newest_f), "mtime": newest,
+                    "files": n_files}
+    return {"ok": False, "path": str(bases[0]) if bases else None, "names": _app_names(root)}
+
+
+def _deps_chain(root: Path) -> dict:
+    """④ 依赖与分发链路：node_modules / distribution / electron-builder extraResources"""
+    nm = root / "node_modules"
+    nm_n = 0
+    if nm.is_dir():
+        try:
+            nm_n = len(list(nm.iterdir()))
+        except OSError:
+            nm_n = 0
+    dist_like = [d.name for d in root.iterdir()
+                 if d.is_dir() and d.name in ("distribution", "pack-staging", "pack_staging", "resources")]
+    builder, extra = None, False
+    for f in ("electron-builder.yml", "electron-builder.yaml", "electron-builder.json"):
+        p = root / f
+        if p.exists():
+            builder = f
+            try:
+                extra = "extraResources" in p.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                pass
+            break
+    return {"ok": nm.is_dir() or bool(dist_like) or bool(builder), "node_modules": nm_n,
+            "dist_dirs": dist_like, "builder": builder, "extra": extra}
+
+
+def check_active_tree(project_dir: str, userdata: str = None) -> dict:
+    root = Path(project_dir)
+    if not root.is_dir():
+        return {"ok": False, "error": f"目录不存在: {project_dir}"}
+    g = _git_last_commit(root)
+    p = _latest_product(root)
+    u = _userdata_evidence(root, userdata)
+    d = _deps_chain(root)
+    items = [
+        {"key": "git", "name": "① 最近提交（git log --date=iso）",
+         "status": "PASS" if g["ok"] else "SKIP", "detail": g["detail"]},
+        {"key": "product", "name": "② 构建产物/可执行文件 mtime",
+         "status": "PASS" if p["ok"] else "WARN",
+         "detail": (f"{p['path']} = {_fmt_mtime(p['mtime'])}" if p["ok"]
+                    else "未找到构建产物（dist*/win-unpacked/*.exe / app.asar）")},
+        {"key": "userdata", "name": "③ 运行时痕迹（userData db/日志）",
+         "status": "PASS" if u["ok"] else "WARN",
+         "detail": (f"{u['path']} 最新：{Path(u['newest']).name} = {_fmt_mtime(u['mtime'])}"
+                    f"（{u['files']} 个文件）" if u["ok"] else
+                    f"未找到 userData 目录（候选：{', '.join(u.get('names') or []) or '无'}）"
+                    f"——该树很可能不是用户实际运行的活跃树")},
+        {"key": "deps", "name": "④ 依赖与分发链路",
+         "status": "PASS" if d["ok"] else "WARN",
+         "detail": f"node_modules={d['node_modules']} 项 | 分发目录={'/'.join(d['dist_dirs']) or '无'} | "
+                   f"{d['builder'] or '无 electron-builder 配置'}"
+                   + ("（extraResources ✓）" if d["extra"] else "")},
+    ]
+    ev = sum(1 for it in items if it["status"] == "PASS")
+    if ev == 4:
+        verdict = "✅ 四证据齐——判定为活跃树"
+    elif not u["ok"]:
+        verdict = "⚠ 缺运行时痕迹（证据③）——非活跃树嫌疑：用户很可能没在跑这棵树（rule 82 实战主信号）"
+    elif ev >= 2:
+        verdict = f"⚠ 证据 {ev}/4——参照活跃树（信息不足，缺的项先补齐再判定）"
+    else:
+        verdict = f"✗ 证据仅 {ev}/4——疑似死树/旧备份"
+    return {"ok": True, "root": str(root), "mode": "active-tree", "items": items,
+            "evidence": ev, "max_evidence": 4, "verdict": verdict,
+            "userdata_ok": u["ok"], "product_ok": p["ok"]}
+
+
+def render_active_tree_report(res: dict) -> str:
+    lines = [f"[six_layer_check] 项目: {res['root']}  模式: {res['mode']}"
+             f"（活跃树判定四证据 · rule 82 ①）"]
+    for it in res["items"]:
+        mark = {"PASS": "✓", "FAIL": "✗", "SKIP": "-", "WARN": "!"}.get(it["status"], "?")
+        lines.append(f"  {mark} [{it['status']:4s}] {it['name']}  {it['detail']}")
+    lines.append(f"  证据 {res['evidence']}/{res['max_evidence']} → {res['verdict']}")
+    return "\n".join(lines)
+
+
+def render_active_tree_compare(results: list) -> str:
+    lines = ["=== 活跃树对比（rule 82 ① · 判据与文档冲突时以磁盘为准）==="]
+    for r in results:
+        if not r.get("ok"):
+            lines.append(f"  {r.get('root')}: {r.get('error')}")
+            continue
+        ud = "userData ✓" if r["userdata_ok"] else "userData ✗"
+        pr = "产物 ✓" if r["product_ok"] else "产物 ✗"
+        lines.append(f"  {r['root']}: 证据 {r['evidence']}/4 | {ud} | {pr}")
+    live = [r for r in results if r.get("ok") and r.get("userdata_ok")]
+    # 嵌套树同属一个 git 仓库时，证据①（提交时间）不具区分度——显式提示，防误判
+    gits = {it.get("detail") for r in results if r.get("ok") for it in (r.get("items") or [])[:1]}
+    if len(results) > 1 and len(gits) == 1:
+        lines.append("  注：① 提交时间为同一 git 仓库共享（嵌套树场景）——不具区分度，以 ②③④ 为准")
+    if len(live) == 1:
+        lines.append(f"  → 判定：{live[0]['root']} 是活跃树（唯一有运行时痕迹者）；其余候选按死树/旧备份对待")
+    elif not live:
+        lines.append("  → 判定：无候选有运行时痕迹——都不是用户实际运行的树（或 userData 在别处），"
+                     "需向用户确认运行入口（rule 82：一句话确认后再动手）")
+    else:
+        lines.append(f"  → 判定：{len(live)} 棵候选都有运行时痕迹——按产物 mtime + git 提交新旧取活跃者，"
+                     f"并向用户一句话确认")
+    return "\n".join(lines)
+
+
+def _force_utf8_stdio():
+    """Windows 控制台默认 GBK：✓/✗/⚠ 等符号会 UnicodeEncodeError 直接崩掉报告输出
+    （2026-09-12 实跑暴露：active-tree 双树对比输出崩溃）。
+    统一转 UTF-8（errors=replace 兜底）——报告永不为编码问题静默失败。"""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
+def _runtime_probe_safe():
+    """运行时探针（rule 78 v3.16.0）：脚本 Gate 前置动作。探针失败不阻断检查，
+    但必须在报告头明示（禁止静默跳过，G-001 v1.4 口径）。"""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import runtime_probe
+        return runtime_probe.probe()
+    except Exception:
+        return None
+
+
+def _probe_line(p: dict) -> str:
+    n = p.get("node") or {}
+    txt = f"python={p['python']['version']} node={n.get('version') or 'missing'}"
+    if not n.get("ok"):
+        txt += "（降级：node 不可用 → 手写等价记录 + 标注未验证；rule 78）"
+    return f"[PROBE] {txt} status={p.get('status')}"
+
+
 def main():
+    _force_utf8_stdio()
     argv = sys.argv[1:]
     verb = None
-    if argv and argv[0] == "render-silent-fail":
-        verb = "render-silent-fail"
-    elif argv and argv[0] == "product-assert":
-        verb = "product-assert"
-    if verb:
+    if argv and argv[0] in ("render-silent-fail", "product-assert", "active-tree"):
+        verb = argv[0]
         argv = argv[1:]
-    # --force-with-reason=理由 → 留痕跳过（仅 product-assert 生效）
     force_reason = None
+    userdata = None
     flags = set()
     for a in argv:
         if a.startswith("--force-with-reason="):
             force_reason = a.split("=", 1)[1]
+        elif a.startswith("--userdata="):
+            userdata = a.split("=", 1)[1]
         elif a.startswith("--"):
             flags.add(a)
     args = [a for a in argv if not a.startswith("--")]
+    strict = "--strict" in flags
+    as_json = "--json" in flags
+
+    if verb == "active-tree":
+        dirs = args or ["."]
+        results = [check_active_tree(d, userdata) for d in dirs]
+        if not any(r.get("ok") for r in results):
+            print(f"[six_layer_check] {results[0].get('error')}")
+            sys.exit(2)
+        if as_json:
+            print(json.dumps(results if len(results) > 1 else results[0], ensure_ascii=False, indent=2))
+        else:
+            parts = [render_active_tree_report(r) if r.get("ok")
+                     else f"[six_layer_check] {r.get('error')}" for r in results]
+            if len(results) > 1:
+                parts.append(render_active_tree_compare(results))
+            print("\n".join(parts))
+        if strict and any(r.get("ok") and (r["evidence"] < 4 or not r["userdata_ok"]) for r in results):
+            sys.exit(1)
+        sys.exit(0)
+
     project_dir = args[0] if args else "."
     mode = "auto"
     for m in ("init", "deliver"):
         if f"--mode={m}" in flags or f"--mode {m}" in " ".join(sys.argv):
             mode = m
-    strict = "--strict" in flags
-    as_json = "--json" in flags
 
     if verb in ("render-silent-fail", "product-assert"):
         if verb == "render-silent-fail":
@@ -650,6 +1136,10 @@ def main():
             res["fail_count"] = 0
         report = (render_silent_fail_report(res) if verb == "render-silent-fail"
                   else render_product_assert_report(res))
+        probe = _runtime_probe_safe()
+        if probe:
+            res["runtime"] = probe
+            report = _probe_line(probe) + "\n" + report
         if as_json:
             print(json.dumps(res, ensure_ascii=False, indent=2))
         else:
@@ -662,10 +1152,15 @@ def main():
     if not res.get("ok"):
         print(f"[six_layer_check] {res.get('error')}")
         sys.exit(2)
+    report = render_report(res)
+    probe = _runtime_probe_safe()
+    if probe:
+        res["runtime"] = probe
+        report = _probe_line(probe) + "\n" + report
     if as_json:
         print(json.dumps(res, ensure_ascii=False, indent=2))
     else:
-        print(render_report(res))
+        print(report)
     if strict and res.get("missing"):
         sys.exit(1)
     sys.exit(0)

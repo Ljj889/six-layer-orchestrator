@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""read_knowledge 原语 · 引擎层参考实现（v3.9.3）
+"""read_knowledge 原语 · 引擎层参考实现（框架对齐 v3.16.0；自 v3.9.3 起）
 
 对应 SKILL.md rule 59：从 knowledge/_index.md（canonical entry）按问题类型/tags
 检索 active 资产，供注入 spec/plan/constitution 或 just-in-time 使用。
@@ -105,7 +105,17 @@ def read_knowledge(query: str, scope: str = "all", status_filter: str = "active"
     return hits[:top_k]
 
 
+def _force_utf8_stdio():
+    """stdio 加固（v3.16.0）：Windows 控制台默认 GBK 下非 ASCII 输出会 UnicodeEncodeError。"""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
 def main() -> None:
+    _force_utf8_stdio()
     ap = argparse.ArgumentParser(description="read_knowledge 原语参考实现 (rule 59)")
     ap.add_argument("query", nargs="?", default="", help="检索关键词（按 tags/摘要匹配）")
     ap.add_argument("--scope", default="all", choices=["all", "user", "project", "local"])

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""L3 输出校验脚本：校验子 Agent 返回的 JSON 是否符合约定 schema。
+"""L3 输出校验脚本（框架对齐 v3.16.0）：校验子 Agent 返回的 JSON 是否符合约定 schema。
 
 用法:
     python validate_output.py <output.json> <schema.json>
@@ -63,7 +63,17 @@ def validate(data, schema, path="root", errors=None):
     return errors
 
 
+def _force_utf8_stdio():
+    """stdio 加固（v3.16.0）：Windows 控制台默认 GBK 下非 ASCII 输出会 UnicodeEncodeError。"""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
 def main() -> int:
+    _force_utf8_stdio()
     if len(sys.argv) != 3:
         print("用法: python validate_output.py <output.json> <schema.json>")
         return 2

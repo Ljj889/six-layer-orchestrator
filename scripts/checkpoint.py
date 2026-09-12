@@ -1,4 +1,4 @@
-"""checkpoint.py — 断点三态管理（rule 39 · 引擎回灌适配版 v3.9.13）
+"""checkpoint.py — 断点三态管理（rule 39 · 框架对齐 v3.16.0；引擎自 v3.9.13 起）
 
 来源：编排系统项目 checkpoint_manager.py 按框架语义适配（2026-09-01）。
 与 rule 39 对齐：状态三态（已交付/已验证/未验证）+ 派发前"预期产物清单"（pending）。
@@ -99,7 +99,18 @@ def cmd_verify(root: Path, module_id: str, files: list):
     print(f"[checkpoint] ✓ {module_id} 磁盘核验通过（stat 存在且非空）")
 
 
+def _force_utf8_stdio():
+    """stdio 加固（v3.16.0）：Windows 控制台默认 GBK，报告里的 ✓/✗/⚠ 会 UnicodeEncodeError
+    直接崩掉输出（2026-09-12 实跑实测）。errors=replace 兜底——报告永不为编码问题静默失败。"""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
 def main():
+    _force_utf8_stdio()
     args = [a for a in sys.argv[1:]]
     if len(args) < 2:
         print(__doc__)

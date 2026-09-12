@@ -31,7 +31,7 @@ agent_created: true
 
 ## Workflow（六层流程 v3.16.0 · 全局编号 1-82，
 删除号 13/15/17/25/26/30 留空不复用，新增从 46 起；有效规则 66 条 · 含 Phase 0.5 知识资产初始化防文件腐烂 · v3.9.1=ChatCut 反馈修订 / v3.9.2=调研经验转化 / v3.9.3=经验蒸馏+文档读取闭环 / v3.9.4=番茄钟实战反馈修订 / v3.9.5=多宠语音实战反馈 / v3.9.6=项目生命周期状态机 / v3.9.7=硬约束优先+纠错先检索 / v3.9.8=设计锁定原则 / v3.9.9=过程文档先行+解耦第一+验收Gate不豁免 / v3.9.10=对抗式双架构师设计回路+调研crawler / v3.10.0=每步方向讨论 Gate / v3.11.0=混合审查+质量Rubric+并行隔离+Wave级复盘+计划评审回合制 / v3.12.0=galagame 僵尸能力红线+monorepo构建顺序+web自动化环境坑+设置入口ADR / v3.13.0=WorkBuddy+CodeBuddy 两版合并统一编号（rule 73-75 并入，G-006 框架合规指南，引擎三件套 + six_layer_check 脚本）/ v3.13.1=蒸馏资产唯一真相源=独立仓库（rule 76，家俊决策 A）/ v3.14.0=实战复盘五反馈引擎化（rule 77 子代理能力探测与直做模式 / rule 78 引擎三件套进Wave Gate / rule 79 渲染端静默失效检查Gate / rule 80 取证优先与现象排查卡 / rule 81 长排错会话检查点）/ v3.14.1=改错能力研讨会收敛（rule 41 归因闭环：现象消失证据+单变量+取证排序 / rule 64 检索序加项目内参照 / rule 68 副作用审查子检查点 / rule 79 第六项产物级断言 product-assert / rule 80 环境快照第0步+漂移五族 / R-011 项目内参照物优先 / 交付取证包模板；0 条新 rule，全部扩展现有规则 / v3.15.0=便签反馈回合2蒸馏（rule 72 僵尸新变体·preload 参数焊死 / rule 73 共享交互 hook 信号 / rule 79 脚本 Gate 噪音甄别+空洞 PASS / rule 80 取证手段分层·结构性缺失 grep 三问 / 
-G-001 v1.3 Windows 运行环境坑；0 条新 rule，全部扩展现有规则） · v3.16.0=番茄宠物V2 单日实战蒸馏（新增 rule 82 接手对齐三硬步骤：活跃树判定四证据 + 根因可信度标签 + 勿动清单推翻条件；扩展 rule 5 分级纪律延伸到交接文档与行号锚定 / rule 41 真实源码函数复现 / rule 61 审美类反馈一句话确认 / rule 64 发布前置链单命令化 / rule 66 方向卡未响应分支 / rule 77 无框架痕迹项目的最小载体 + direct 模式最低验收线（四条） / rule 78 引擎脚本运行时探针 / rule 79 第六项 产物断言时序与稳定性 / rule 80 验收三要素 + 现象→可判定断言模板 + 输入输出可见日志；新增 R-012 幂等导入可见性 · framework-skill real-source-repro · G-001 v1.4 运行时探针/无 Git Bash · G-002 v2 净机模拟+审美反馈 · R-007 v3 切换类状态同步变体）
+G-001 v1.3 Windows 运行环境坑；0 条新 rule，全部扩展现有规则） · v3.16.0=番茄宠物V2 单日实战蒸馏（新增 rule 82 接手对齐三硬步骤：活跃树判定四证据 + 根因可信度标签 + 勿动清单推翻条件；扩展 rule 5 分级纪律延伸到交接文档与行号锚定 / rule 41 真实源码函数复现 / rule 61 审美类反馈一句话确认 / rule 64 发布前置链单命令化 / rule 66 方向卡未响应分支 / rule 77 无框架痕迹项目的最小载体 + direct 模式最低验收线（四条） / rule 78 引擎脚本运行时探针 / rule 79 第六项 产物断言时序与稳定性 / rule 80 验收三要素 + 现象→可判定断言模板 + 输入输出可见日志；新增 R-012 幂等导入可见性 · framework-skill real-source-repro · G-001 v1.4 运行时探针/无 Git Bash · G-002 v2 净机模拟+审美反馈 · R-007 v3 切换类状态同步变体）【同日引擎对齐】scripts：+runtime_probe.py · six_layer_check 增 active-tree / product-assert 时序与稳定性 / render-silent-fail 噪音治理 / [PROBE] 报告头 · sync_to_platforms(.sh/.ps1) 校验升级（版本抽检 ≥2 处 + 领先检测 + MD5 + 逐目录文件数）；references：symptom_triage v2.1（验收三要素 + 现象→可判定断言模板）/ bug_fix_mode v1.5（真实源码复现 + 检索序补项目内参照）/ task_templates（+接手对齐卡 + direct 模式最低验收线）
 
 ### Phase -2：调研学习（可复用借鉴优先，家俊版核心前置）
 
@@ -353,7 +353,7 @@ Bug-Fix 轻量模式（rule 46）与"要不要编排"出口（单 Agent 直做�
     - **Wave 收尾**：`python scripts/checkpoint.py <项目根> status`（三态总览）+ `python scripts/cost_log.py <项目根> summary`（账本合规检查）+ 状态流转点 `python scripts/lifecycle.py <项目根> transit <目标状态> --evidence-file <路径>`（rule 63 证据门）；
     - **Rule 70 Wave 复盘卡照常手写**（复盘是判断类，不引擎化），但复盘卡**引用 cost_log summary 的输出**作为输入；
     - **红线**：Wave 收尾时 cost_log 无对应派发记录 / progress.json 无 mark 记录 = 该 Wave **未验证完成**（新增 Red Flag）——"写了 markdown 但没跑脚本"不算 Gate 通过（rule 64：能脚本化的绝不靠自觉重抄一遍）。
-【v3.16.0 扩展 · 引擎脚本的运行时探针】任何脚本 Gate 执行前先跑**运行时探针**（`node -v` / `python -V`，含绝对路径回退）——实测本机 PATH 指向**已被删除**的 node 版本目录，`node`/`npm` 全不可用，三件套脚本必然失败；探针失败 → 降级为"手写等价记录 + 标注未验证"，**禁止静默跳过**（环境细节见 G-001 v1.4）。
+【v3.16.0 扩展 · 引擎脚本的运行时探针】任何脚本 Gate 执行前先跑**运行时探针**（`node -v` / `python -V`，含绝对路径回退）——实测本机 PATH 指向**已被删除**的 node 版本目录，`node`/`npm` 全不可用，三件套脚本必然失败；探针失败 → 降级为"手写等价记录 + 标注未验证"，**禁止静默跳过**（环境细节见 G-001 v1.4）。**引擎**：`python scripts/runtime_probe.py [--require node]`（探针链：PATH → 受管目录回退，输出可 grep 的 `[PROBE] …status=ok|degraded`；`--require` 缺失即 exit 1，可作 Gate 前置条件）；`six_layer_check.py` 各子命令报告头已自动带 `[PROBE]` 行。
 
 79. **渲染端静默失效检查 Gate（v3.14.0 新增 · 2026-09-05 家俊 Electron 实战硬伤2：Tailwind content 漏扫三轮才定位）**：**typecheck 绿 + build 绿 + 运行不崩 ≠ 真的没坏**——Electron/前端项目存在五处"三层全绿但功能静默失效"的配置点（tsconfig include / vite input / tailwind content / preload d.ts / IPC 通道一致性），每一个都曾实撞。引擎化为脚本子命令：
     - **触发条件（条件 Gate）**：本轮新增/修改了**渲染端窗口、页面、overlay 类模块** → 该模块合并前必跑 `python scripts/six_layer_check.py render-silent-fail <项目根> --strict`（exit 1 = 有静默失效隐患，禁止合并）；
@@ -369,7 +369,7 @@ Bug-Fix 轻量模式（rule 46）与"要不要编排"出口（单 Agent 直做�
       - **触发条件（diff-scope 条件触发，防激励稀释）**：本轮改动涉及**样式类/选择器敏感内容**（class 字面量、样式文件、渲染窗口）→ build 后必跑；不涉及则 --mode deliver 兜底跑一次；非前端项目 SKIP。
       - **FAIL 甄别与空洞 PASS（v3.15.0 · 便签反馈回合2）**：五项检查是**全仓启发式**，FAIL ≠ 真 FAIL，处置序 = ① **改动范围对焦**——本轮 diff 涉及的目录/符号是否真缺覆盖（实测把非 UI 目录 main/preload/tmp/out-old-* 混入 tailwind content 比较域 = 噪音）→ ② **产物级独立取证**一锤定音（grep 产物 CSS/JS，新增 utility 类全命中 → 记"启发式噪音"放行，cost_log 留痕）→ ③ **空洞 PASS 识别**——报告出现"0 个期望 X 全部命中"式无信息量通过时视为未验证，必须补独立取证（实测 product-assert 抽到 0 个期望类即 vacuous 通过，人工 grep 产物 CSS 补证后才算数）。
 
-      - **产物断言的时序与稳定性（v3.16.0 新增）**：产物断言必须 ①等**打包进程退出** ②**尺寸两次采样相等** ③加**时序断言**（zip mtime > asar mtime，证明归档装的是最终产物）——实测在打包**进行中**采样会拿到中间态（asar 274→287MB / zip 256→268MB），据此下结论 = 假证据。
+      - **产物断言的时序与稳定性（v3.16.0 新增）**：产物断言必须 ①等**打包进程退出** ②**尺寸两次采样相等** ③加**时序断言**（zip mtime > asar mtime，证明归档装的是最终产物）——实测在打包**进行中**采样会拿到中间态（asar 274→287MB / zip 256→268MB），据此下结论 = 假证据。**已引擎化**：`product-assert` 内置三条断言（打包进程探针 / 两次采样 / zip>asar），不成立即 FAIL；"抽到 0 个期望类"的空洞 PASS 自动识别为 WARN（rule 79 v3.15.0），且 WARN **不再计入"通过"**。
 
 80. **取证优先与现象排查卡（v3.14.0 新增 · 硬伤3：真机才能暴露的问题取证不标准，多轮往返）**：用户报**现象类问题**（UI 不显示/样式丢失/交互无响应/"看起来不对"）时——**第一动作是取证，不是改代码**。实战教训："看不到"问题第一轮靠猜、第二轮才加日志、第三轮才做对照实验，用户的"先看日志报错，确定究竟什么问题再解决"就是纠正。固化：
     - **取证优先（硬规则）**：现象类问题禁止未取证就改代码。第一动作三件：① **加最小诊断日志**（在嫌疑链路上输出关键状态）② **向用户要标准数据**（该现象的标准数据集是固定的，如窗口问题=visible/pos/size/z-order/render-mounted 五项，见排查卡）③ **设计对照实验**（一次只改一个变量，如隐藏其他窗口排除 z-order 干扰）；
@@ -393,7 +393,7 @@ Bug-Fix 轻量模式（rule 46）与"要不要编排"出口（单 Agent 直做�
 
 
 82. **接手对齐三硬步骤（v3.16.0 新增 · 2026-09-12 番茄宠物V2 实战：交接文档指错活跃目录，10 个修复险全打空）**：接手别人（或上个会话）的交接文档时，**文档是线索不是事实**——三个动作按序做完才能动手：
-    - **① 活跃树判定四证据（缺一不可）**：最近提交时间（`git log --date=iso`）/ 构建产物与可执行文件 mtime / **运行时痕迹**（`%APPDATA%\<app>` 或 userData 下 db+日志的 mtime）/ 依赖与分发链路（node_modules 是否装、分发目录/打包配置是否存在）。四证据与文档冲突 → **以磁盘为准**，并向用户一句话确认（"我判定活跃目录是 X，依据是 A/B/C/D，与你文档写的 Y 相反，按 X 走？"）。实战：文档写"活跃目录是独立版、根级是旧备份"，四证据全指向相反——若照文档执行，10 个修复全部落在死树上且**不报任何错**。
+    - **① 活跃树判定四证据（缺一不可）**：最近提交时间（`git log --date=iso`）/ 构建产物与可执行文件 mtime / **运行时痕迹**（`%APPDATA%\<app>` 或 userData 下 db+日志的 mtime）/ 依赖与分发链路（node_modules 是否装、分发目录/打包配置是否存在）。四证据与文档冲突 → **以磁盘为准**，并向用户一句话确认（"我判定活跃目录是 X，依据是 A/B/C/D，与你文档写的 Y 相反，按 X 走？"）。实战：文档写"活跃目录是独立版、根级是旧备份"，四证据全指向相反——若照文档执行，10 个修复全部落在死树上且**不报任何错**。**引擎**：`python scripts/six_layer_check.py active-tree <候选1> <候选2>`（四证据一次出表 + ≥2 棵树自动给"谁是活跃树"对比判定；`--strict` 时缺运行时痕迹即 exit 1）。
     - **② 根因可信度标签**：文档里每条根因必须被标 `[已复现]` 或 `[已推断]`；`[已推断]` 的根因，接手方**必须先复现一次**（真实源码函数 + 真实数据，见 knowledge/framework-skills/real-source-repro）才允许落码——直接继承结论 = 一轮修复打偏（实战：文档断言"bidi 已完整解析、勿动"，真凶恰在该文件；照结论做的修复对症状无效）。
     - **③ 勿动清单带推翻条件**：文档里的"勿动/禁区"每条必须写清推翻条件（例："有真机日志 + 最小复现链证明缺陷在本文件 → 允许改，须在交付说明记录破例理由与影响面"）；没有推翻条件的勿动项视为**建议**而非红线。
     - **与 rule 12/19 的关系**：本条不改变调度器/架构师职责，只规定"接手那一刻"的三步对齐动作；对齐产出（判定结论 + 假设清单 + 未验证项）应落进 rule 77 的最小载体。
@@ -481,11 +481,16 @@ framework-skills experience-distiller + ts-smoke-harness（无测试框架冒烟
 ### scripts/six_layer_check.py
 框架合规检查脚本（v3.9.12 新增 · galagame 教训）：`python scripts/six_layer_check.py <项目目录> [--mode init|deliver|auto] [--strict] [--json]` — 一键核查框架痕迹（git 基线/Phase 0.5 知识资产/SDD 四件套/lessons/cost_log/progress/PHASE 标记/收尾文档），缺失项列清单并提示补哪个 Phase。开工前 `--mode init`、收尾 `--mode deliver`；软约束失效的硬检查解药（rule 64 引擎化落地，详见 G-006）。**v3.14.0 子命令** `render-silent-fail <项目目录>`（rule 79）：渲染端静默失效五项检查（tsconfig include / vite input / tailwind content / preload d.ts / IPC 通道一致性），配置存在才查、不存在 SKIP，`--strict` 时 FAIL 即 exit 1——新增渲染端窗口/页面模块的合并前置 Gate。**v3.14.1 子命令** `product-assert <项目目录> [--strict] [--force-with-reason=理由]`（rule 79 第六项）：产物级断言——Tier A 纯 Tailwind 硬 Gate（产物 CSS 缺 utility 类 ≥3 FAIL）/ 共存 WARN / Tier B product-assert.json 声明清单断言字面量 / 产物陈旧告警——build 后交付 Gate，防"四轮才发现产物里没有样式"。
 
+**v3.16.0 增补（引擎对齐）**：① 新子命令 `active-tree <候选目录…>`——rule 82 ① 活跃树判定四证据（git 最近提交 / 产物 mtime / userData 运行时痕迹 / 依赖与分发链路），给 ≥2 个目录自动出对比判定；② `product-assert` 增**时序与稳定性**（打包进程探针 / 两次采样相等 / zip>asar）与**产物目录选择**（兼容 dist-v3/dist-v4，可交付产物优先、CSS 目录单独选）+ 空洞 PASS 识别（WARN 不计入通过）；③ `render-silent-fail` **噪音治理**（前缀剪枝 dist*/out-*/tmp*/build*；tailwind 比较域收窄到 UI 目录；preload d.ts 加 DOM 白名单）——实测 FAIL 从 80+ 条噪音收敛到 2 条真问题；④ 全部子命令报告头带 `[PROBE]` 运行时探针行 + stdout 强制 UTF-8（Windows GBK 下 ✓/✗ 曾直接崩输出）。
+
+### scripts/runtime_probe.py
+运行时探针（rule 78 v3.16.0 · 所有脚本 Gate 的前置动作）：`python scripts/runtime_probe.py [--require node,python] [--json]`——探针链 **PATH → 受管目录回退**（`~/.workbuddy/binaries/node/versions/*`、nvm、`Program Files\nodejs`），输出可 grep 的 `[PROBE] python=… node=… py_launcher=broken status=ok|degraded`；探针失败 → 按 rule 78 降级（手写等价记录 + 标注未验证），**禁止静默跳过**；`--require` 有缺失项时 exit 1（可作 Gate 前置条件）。实测本机：node 只在受管目录（PATH 上的已失效）、`py.exe` 启动器 **broken**（`py -0` 能列条目但跑不起来），与 G-001 v1.4 同源。
+
 ### scripts/validate_output.py
 L3 输出校验脚本：`python scripts/validate_output.py <output.json> <schema.json>`，exit 0=通过 / 1=失败。
 
 ### scripts/checkpoint.py · scripts/cost_log.py · scripts/lifecycle.py
 引擎三件套（v3.9.13 新增 · rule 38/39/63 引擎化）：`checkpoint.py` 断点三态（已交付/已验证/未验证）+ 派发前预期产物清单 + 磁盘核验（stat）；`cost_log.py` 成本账本定长行 `[时间]|[对象]|[档位]|[成本]|[结果]|[异常类型]` + 汇总/合规检查；`lifecycle.py` 项目五态状态机（INIT→EXECUTING→DELIVERED→REOPENED/ACCEPTED），非法转移拒绝 + Gate 证据门（DELIVERED 需未验证项清单、ACCEPTED 需用户确认记录）。三件套共用 `progress.json`（lifecycle 字段）。**新项目统一用新格式；旧项目（编排系统 MVP 的 cost_report.json 等）归档不迁移（2026-09-01 决策 A）。引擎先随 skill 版本演进，验证稳定后抽独立仓库（家俊 2026-09-01 决策）。**
 
-### 引擎化落地现状（v3.13.0 更新 · 实测清单）
-SKILL.md 描述的引擎能力 vs scripts/ 实际落地（2026-09-01 实测）：✅ `validate_output.py`（L3 校验）· ✅ `read_knowledge.py`（经验召回）· ✅ `six_layer_check.py`（合规检查，v3.9.12；v3.14.0 增 `render-silent-fail` 渲染端静默失效五项检查子命令，rule 79；v3.14.1 增 `product-assert` 产物级断言子命令）· ✅ `checkpoint.py`（断点三态+预期产物清单，rule 39，v3.9.13）· ✅ `cost_log.py`（成本定长行账本，rule 38/53，v3.9.13）· ✅ `lifecycle.py`（五态状态机+Gate 证据门，rule 63，v3.9.13）· ❌ `cli.py design --finalize`（设计锁定 Gate）· ❌ `route_error()`（错误路由器）。**硬约束层已覆盖核心数据/状态类；剩余引擎化项按 rule 64 优先级逐步补齐，判断类（架构评审/审查）永不脚本化。**
+### 引擎化落地现状（v3.16.0 更新 · 实测清单）
+SKILL.md 描述的引擎能力 vs scripts/ 实际落地（2026-09-12 实测）：✅ `validate_output.py`（L3 校验）· ✅ `read_knowledge.py`（经验召回）· ✅ `six_layer_check.py`（合规检查，v3.9.12；v3.14.0 增 `render-silent-fail`；v3.14.1 增 `product-assert`；**v3.16.0 增 `active-tree` + 时序与稳定性 + 噪音治理 + `[PROBE]` 报告头**）· ✅ `runtime_probe.py`（运行时探针，rule 78 v3.16.0；PATH→受管目录回退 + `--require` Gate 前置）· ✅ `checkpoint.py`（断点三态+预期产物清单，rule 39，v3.9.13）· ✅ `cost_log.py`（成本定长行账本，rule 38/53，v3.9.13）· ✅ `lifecycle.py`（五态状态机+Gate 证据门，rule 63，v3.9.13）· ✅ `sync_to_platforms.sh / .ps1`（三平台分发 + 一致性校验 v1.1：版本标记抽检 ≥2 处 + 目标领先检测 + SKILL.md MD5 + 逐目录文件数）· ❌ `cli.py design --finalize`（设计锁定 Gate）· ❌ `route_error()`（错误路由器）。**硬约束层已覆盖核心数据/状态类；剩余引擎化项按 rule 64 优先级逐步补齐，判断类（架构评审/审查）永不脚本化。**

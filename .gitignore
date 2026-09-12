@@ -1,0 +1,7 @@
+# 引擎运行产物（不进版本库，也不随 sync 分发到平台副本）
+__pycache__/
+*.pyc
+
+# 平台副本的历史备份（若在此仓库内产生）
+*.bak
+archive/skill-history/
