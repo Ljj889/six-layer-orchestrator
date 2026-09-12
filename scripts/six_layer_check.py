@@ -44,14 +44,26 @@
     v3.14.1 增 product-assert（rule 79 第六项产物级断言）
     v3.16.0 增 active-tree（rule 82 ① 四证据）+ product-assert 时序与稳定性（打包进程/两次采样/
             zip>asar）+ 产物目录选择兼容 dist-v3 / dist-v4 这类带后缀命名 + 报告头带运行时探针行
+            + self-test 引擎自检（rule 64 回归网：17 条用例全在 tempfile 沙箱现造现跑）
+
+    python six_layer_check.py self-test [--json] [--strict] [--keep-tmp]
+    - 引擎自检（rule 64 回归网 · v3.16.0 新增）：把"真跑才发现"的历史问题固化成 17 条用例——
+      全脚本可编译 / 运行时探针正反用例 / 活跃树四证据与死树识别 / 双树对比判定 /
+      product-assert 目录优选·归档时序·两次采样·空洞 PASS / render-silent-fail 噪音剪枝·UI 域·DOM 白名单 /
+      三件套正反向用例（含 exit code）/ **GBK 环境无 Traceback**（PYTHONIOENCODING=gbk 子进程复现）/
+      分发脚本语法（缺 bash → SKIP 记未验证）。fixture 全在 tempfile 沙箱现造现删。
+      - 退出码：0=无 FAIL；1=有 FAIL（--strict 时 SKIP 也算不通过）
+      - --keep-tmp 保留沙箱供排查；**改引擎后必跑本条**，红了就知道哪条能力回归了
 
 退出码：0=检查完成（非 strict） / 1=有缺失或 strict 判定不达标 / 2=目录不存在
 """
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
@@ -1059,6 +1071,25 @@ def _force_utf8_stdio():
             pass
 
 
+def _safe_print(text: str):
+    """报告输出最后一道防线：stdio 加固若被改坏（GBK 环境），退化为 ASCII 替换 + 明确告警，
+    而不是抛 Traceback 让人猜（规则：红灯要可读；本函数自身只输出 ASCII）。"""
+    try:
+        print(text)
+    except UnicodeEncodeError:
+        print(text.encode("ascii", "replace").decode("ascii"))
+        print("[six_layer_check] WARN: non-ASCII report output failed under this console "
+              "encoding - check _force_utf8_stdio() at the top of each script's main()")
+
+
+def _safe_print_json(obj):
+    """JSON 输出：GBK 环境退化为 ensure_ascii=True（仍是合法 JSON，不抛 Traceback）"""
+    try:
+        print(json.dumps(obj, ensure_ascii=False, indent=2))
+    except UnicodeEncodeError:
+        print(json.dumps(obj, ensure_ascii=True, indent=2))
+
+
 def _runtime_probe_safe():
     """运行时探针（rule 78 v3.16.0）：脚本 Gate 前置动作。探针失败不阻断检查，
     但必须在报告头明示（禁止静默跳过，G-001 v1.4 口径）。"""
@@ -1078,11 +1109,258 @@ def _probe_line(p: dict) -> str:
     return f"[PROBE] {txt} status={p.get('status')}"
 
 
+# ---------- 引擎自检（self-test · v3.16.0 新增） ----------
+# 来源：2026-09-12 引擎对齐实战——本轮修掉的真问题（GBK 控制台崩输出 / 噪音淹没真问题 /
+# 空洞 PASS / 产物目录误选 / 归档时序无断言）**全部是"真跑才发现"的**（rule 43）。
+# 把当时那些真跑用例固化成回归网（rule 64：能脚本化的绝不靠自觉）：
+# 以后每次改引擎，先跑 `python six_layer_check.py self-test`——红了就知道哪条能力回归了。
+# 设计约束：① 只用标准库 ② fixture 在 tempfile 沙箱现造现删（不依赖真实项目）
+#          ③ 编码类问题用 PYTHONIOENCODING=gbk 子进程复现（确定性地抓编码回归）
+#          ④ 本机缺 bash / powershell → SKIP（记未验证，不静默当 PASS）
+
+def _w(p: Path, text: str = "x", mtime: float = None) -> Path:
+    """写 fixture 文件（可指定 mtime；父目录自动建）"""
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(text, encoding="utf-8")
+    if mtime is not None:
+        os.utime(p, (mtime, mtime))
+    return p
+
+
+def _run_proc(cmd, env=None, timeout=120):
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
+                          env=env, encoding="utf-8", errors="replace")
+
+
+def run_self_test(keep_tmp: bool = False) -> dict:
+    items = []
+
+    def add(name, ok, detail="", skip=False):
+        items.append({"name": name, "detail": detail,
+                      "status": "SKIP" if skip else ("PASS" if ok else "FAIL")})
+
+    scripts_dir = Path(__file__).resolve().parent
+    self_path = str(Path(__file__).resolve())
+    py = sys.executable
+    env_gbk = dict(os.environ, PYTHONIOENCODING="gbk")   # 复现 Windows GBK 控制台
+    base = time.time() - 7200                            # fixture 时间基线（远离 now，防"陈旧产物"干扰）
+    box = Path(tempfile.mkdtemp(prefix="sl_selftest_"))
+
+    # 用例 0：全脚本可编译（compile 不落 __pycache__）
+    py_files = sorted(scripts_dir.glob("*.py"))
+    bad = []
+    for f in py_files:
+        try:
+            compile(f.read_text(encoding="utf-8"), str(f), "exec")
+        except SyntaxError as e:
+            bad.append(f"{f.name}:{e.lineno}")
+    add("全脚本可编译（compile，不落 pyc）", not bad,
+        f"{len(py_files)} 个脚本" + (f" · 失败: {bad}" if bad else ""))
+
+    # 用例 1：运行时探针（正反用例 + GBK 环境）
+    r = _run_proc([py, str(scripts_dir / "runtime_probe.py"), "--require", "nonexistent"], env_gbk)
+    add("runtime_probe --require 缺失 → exit 1",
+        r.returncode == 1 and "status=blocked" in (r.stdout + r.stderr), f"rc={r.returncode}")
+    add("runtime_probe GBK 环境无 Traceback", "Traceback" not in (r.stdout + r.stderr),
+        "PYTHONIOENCODING=gbk")
+
+    # 用例 2：活跃树四证据 + 死树识别 + 双树对比
+    live = box / "live"
+    _w(live / "package.json", json.dumps({"name": "sl-selftest-live", "productName": "SLSelftestLive"}), base)
+    _w(live / "electron-builder.yml",
+       "files: [out/**]\nextraResources:\n  - from: pack-staging\n    to: .\n", base)
+    _w(live / "src" / "index.ts", "export {}\n", base)
+    _w(live / "node_modules" / ".package-lock.json", "{}", base)
+    for i in range(5):
+        _w(live / "node_modules" / f"pkg{i}" / "index.js", "", base)
+    _w(live / "dist" / "win-unpacked" / "resources" / "app.asar", "asar", base)
+    _w(live / "dist" / "win-unpacked" / "SLSelftestLive.exe", "exe", base)
+    _w(live / "dist" / "SLSelftestLive.zip", "zip", base + 600)
+    ud = box / "userdata" / "sl-selftest-live"
+    _w(ud / "data_1", "x", base + 900)
+    _w(ud / "logs" / "main.log", "log", base + 900)
+    rl = check_active_tree(str(live), userdata=str(ud))
+    add("活跃树四证据：产物/运行时痕迹/分发链路可识别",
+        rl["ok"] and rl["product_ok"] and rl["userdata_ok"] and rl["evidence"] >= 3,
+        f"evidence={rl['evidence']}/4 product={rl['product_ok']} userdata={rl['userdata_ok']}")
+    dead = box / "dead"
+    _w(dead / "package.json", "{}", base)
+    _w(dead / "src" / "a.ts", "", base)
+    rd = check_active_tree(str(dead), userdata=str(box / "no_userdata"))
+    add("死树识别：缺运行时痕迹 → 非活跃树嫌疑",
+        (not rd["userdata_ok"]) and "非活跃树嫌疑" in rd["verdict"], rd["verdict"][:56])
+    cmp_txt = render_active_tree_compare([rl, rd])
+    add("双树对比判定：有运行时痕迹者胜出",
+        "是活跃树（唯一有运行时痕迹者）" in cmp_txt, cmp_txt.strip().splitlines()[-1][:72])
+
+    # 用例 3：product-assert（目录优选 / 归档时序 / 两次采样 / 空洞 PASS）
+    pa = box / "pa"
+    _w(pa / "tailwind.config.js", "module.exports={content:['./src/**/*.{ts,tsx}']}\n", base)
+    _w(pa / "src" / "renderer" / "App.tsx",
+       'export const A=()=> <div className="bg-rose-500 flex" />\n', base)
+    _w(pa / "dist" / "win-unpacked" / "resources" / "app.asar", "asar", base)
+    _w(pa / "dist" / "SLSelftest.zip", "zip", base + 600)
+    _w(pa / "out" / "renderer" / "assets" / "index.css", ".bg-rose-500{}.flex{}\n", base + 1200)
+    _w(pa / "out" / "renderer" / "assets" / "index.js", "js", base + 1200)
+    ra = check_product_assert(str(pa))
+    ka = {it["key"]: it for it in ra["items"]}
+    add("产物目录选择：可交付产物(dist)优先于更新的 out",
+        "可交付产物选 dist/" in ka.get("pick", {}).get("detail", ""),
+        ka.get("pick", {}).get("detail", "")[:80])
+    add("归档时序：zip 晚于 asar → PASS",
+        ka.get("time_order", {}).get("status") == "PASS", ka.get("time_order", {}).get("detail", "")[:80])
+    add("产物稳定性：两次采样一致 → PASS",
+        ka.get("stability", {}).get("status") == "PASS", ka.get("stability", {}).get("detail", "")[:60])
+
+    vac = box / "vac"
+    _w(vac / "tailwind.config.js", "module.exports={content:['./src/**/*.tsx']}\n", base)
+    _w(vac / "src" / "Plain.ts", "export const x = 1\n", base)
+    _w(vac / "out" / "index.css", ".a{}\n", base)
+    ta = {it["key"]: it for it in check_product_assert(str(vac))["items"]}.get("tier_a", {})
+    add("空洞 PASS 识别：0 个期望类 → WARN（不算通过）",
+        ta.get("status") == "WARN" and "空洞 PASS" in ta.get("detail", ""),
+        f"status={ta.get('status')} · {ta.get('detail', '')[:48]}")
+
+    bo = box / "bo"
+    _w(bo / "dist" / "win-unpacked" / "resources" / "app.asar", "asar", base + 1200)
+    _w(bo / "dist" / "SLSelftest.zip", "zip", base)
+    to = {it["key"]: it for it in check_product_assert(str(bo))["items"]}.get("time_order", {})
+    add("归档时序反向用例：zip 旧于 asar → FAIL（坏包）",
+        to.get("status") == "FAIL", to.get("detail", "")[:80])
+
+    # 用例 4：render-silent-fail（噪音剪枝 / UI 域 / DOM 白名单）
+    fe = box / "fe"
+    _w(fe / "tailwind.config.js", "module.exports={content:['./src/renderer/**/*.{ts,tsx}']}\n", base)
+    _w(fe / "src" / "renderer" / "App.tsx", "export const A=()=>null\n", base)
+    _w(fe / "src" / "main" / "main.ts", "export {}\n", base)
+    _w(fe / "scripts" / "tool.ts", "export {}\n", base)
+    _w(fe / "out-old-20260816" / "renderer" / "App.tsx", "export {}\n", base)
+    _w(fe / "dist-v3" / "win-unpacked" / "renderer" / "App.tsx", "export {}\n", base)
+    _w(fe / "tmp" / "x" / "renderer" / "App.tsx", "export {}\n", base)
+    tw = {it["key"]: it for it in check_render_silent_fail(str(fe))["items"]}.get("tailwind", {})
+    add("噪音剪枝：out-old-*/dist-v3/tmp 不进比较域（UI 目录已覆盖 → PASS）",
+        tw.get("status") == "PASS", f"status={tw.get('status')} · {tw.get('detail', '')[:60]}")
+
+    fe2 = box / "fe2"
+    _w(fe2 / "tailwind.config.js", "module.exports={content:['./src/other/**/*.{ts,tsx}']}\n", base)
+    _w(fe2 / "src" / "renderer" / "App.tsx", "export const A=()=>null\n", base)
+    _w(fe2 / "src" / "main" / "main.ts", "export {}\n", base)
+    _w(fe2 / "out-old-20260816" / "renderer" / "App.tsx", "export {}\n", base)
+    tw2 = {it["key"]: it for it in check_render_silent_fail(str(fe2))["items"]}.get("tailwind", {})
+    d2 = tw2.get("detail", "")
+    add("tailwind 缺口报真问题、列表无噪音（src/renderer 在、out-old/src/main 不在）",
+        tw2.get("status") == "FAIL" and "src/renderer" in d2
+        and "out-old" not in d2 and "src/main" not in d2,
+        f"status={tw2.get('status')} · {d2[:64]}")
+
+    fe3 = box / "fe3"
+    _w(fe3 / "src" / "renderer" / "x.ts",
+       "export const f=()=>window.document.title+window.HTMLInputElement.name+window.myApi.ping()\n", base)
+    _w(fe3 / "src" / "renderer" / "types.d.ts",
+       "declare global { interface Window { myApi: { ping: () => void } } }\nexport {}\n", base)
+    pl = {it["key"]: it for it in check_render_silent_fail(str(fe3))["items"]}.get("preload", {})
+    add("preload d.ts：DOM 白名单生效（document/HTMLInputElement 不误报）",
+        pl.get("status") == "PASS", f"status={pl.get('status')} · {pl.get('detail', '')[:56]}")
+
+    fe4 = box / "fe4"
+    _w(fe4 / "src" / "renderer" / "x.ts", "export const f=()=>window.undeclaredApi.z\n", base)
+    _w(fe4 / "src" / "renderer" / "types.d.ts",
+       "declare global { interface Window { myApi: {} } }\nexport {}\n", base)
+    pl4 = {it["key"]: it for it in check_render_silent_fail(str(fe4))["items"]}.get("preload", {})
+    add("preload d.ts：真未声明项仍报出",
+        pl4.get("status") == "FAIL" and "undeclaredApi" in pl4.get("detail", ""),
+        pl4.get("detail", "")[:64])
+
+    # 用例 5：本脚本自身输出（GBK 环境不崩）
+    rb = _run_proc([py, self_path, "active-tree", str(live), "--userdata=" + str(ud)], env_gbk)
+    add("本脚本 active-tree 在 GBK 环境不崩（✓/✗ 安全）",
+        rb.returncode == 0 and "Traceback" not in (rb.stdout + rb.stderr) and "活跃树" in rb.stdout,
+        f"rc={rb.returncode} · stdout={len(rb.stdout)}B")
+    rb2 = _run_proc([py, self_path, "product-assert", str(pa)], env_gbk)
+    add("本脚本 product-assert 在 GBK 环境不崩（WARN 符号安全）",
+        rb2.returncode == 0 and "Traceback" not in (rb2.stdout + rb2.stderr), f"rc={rb2.returncode}")
+
+    # 用例 6：三件套正反向用例（GBK 环境，规则 39/38+53/63）
+    tp = box / "tp"
+    _w(tp / "art.txt", "x")
+    _w(tp / "uv.md", "x")
+    _w(tp / "acc.md", "x")
+    S = str(scripts_dir)
+    ck = [py, f"{S}/checkpoint.py", str(tp)]
+    r_ck = [_run_proc(ck + a, env_gbk) for a in
+            (["expect", "W1", "m1", "art.txt"], ["mark", "m1", "delivered"],
+             ["verify", "m1", "art.txt"], ["verify", "m1", "nope.txt"])]
+    rcs = [x.returncode for x in r_ck]
+    add("checkpoint 三态 + 磁盘核验（含缺失反向用例）", rcs == [0, 0, 0, 1], f"rcs={rcs}")
+    add("checkpoint GBK 环境无 Traceback",
+        all("Traceback" not in (x.stdout + x.stderr) for x in r_ck), "PYTHONIOENCODING=gbk")
+    r_c1 = _run_proc([py, f"{S}/cost_log.py", str(tp), "add", "m1", "lite", "0.1", "ok", "无"], env_gbk)
+    r_c2 = _run_proc([py, f"{S}/cost_log.py", str(tp), "add", "m2", "BOGUS", "0.1", "ok", "无"], env_gbk)
+    add("cost_log 记账 + 非法档位拒绝",
+        r_c1.returncode == 0 and r_c2.returncode == 1, f"rcs={[r_c1.returncode, r_c2.returncode]}")
+    lf = [py, f"{S}/lifecycle.py", str(tp)]
+    r_l = [_run_proc(lf + a, env_gbk) for a in
+           (["transit", "DELIVERED"], ["transit", "EXECUTING"],
+            ["transit", "DELIVERED", "--evidence-file", str(tp / "uv.md")],
+            ["transit", "ACCEPTED", "--evidence-file", str(tp / "acc.md")])]
+    rls = [x.returncode for x in r_l]
+    add("lifecycle 状态机：非法转移/证据门/正常链", rls == [1, 0, 0, 0], f"rcs={rls}")
+    add("lifecycle GBK 环境无 Traceback",
+        all("Traceback" not in (x.stdout + x.stderr) for x in r_l), "PYTHONIOENCODING=gbk")
+
+    # 用例 7：分发脚本语法（本机缺 bash 时 SKIP，记未验证）
+    ps1 = scripts_dir.parent / "sync_to_platforms.ps1"
+    if ps1.exists() and shutil.which("powershell"):
+        rr = _run_proc(["powershell", "-NoProfile", "-Command",
+                        f"[void][scriptblock]::Create((Get-Content -Raw '{ps1}')); 'PARSE_OK'"])
+        add("sync_to_platforms.ps1 语法解析",
+            rr.returncode == 0 and "PARSE_OK" in (rr.stdout or ""), f"rc={rr.returncode}")
+    else:
+        add("sync_to_platforms.ps1 语法解析", True, "本机无 powershell", skip=True)
+    sh = scripts_dir.parent / "sync_to_platforms.sh"
+    if sh.exists() and shutil.which("bash"):
+        probe = _run_proc(["bash", "-c", "echo BASH_OK"])
+        if "BASH_OK" in (probe.stdout or ""):
+            rr = _run_proc(["bash", "-n", str(sh)])
+            add("sync_to_platforms.sh 语法检查（bash -n）", rr.returncode == 0,
+                (rr.stderr or "")[:64] or "ok")
+        else:
+            add("sync_to_platforms.sh 语法检查（bash -n）", True,
+                "bash 不可用（WSL 无发行版 / 无 Git Bash）→ 记未验证", skip=True)
+    else:
+        add("sync_to_platforms.sh 语法检查（bash -n）", True,
+            "本机无 bash → 记未验证", skip=True)
+
+    pass_count = sum(1 for it in items if it["status"] == "PASS")
+    fail_count = sum(1 for it in items if it["status"] == "FAIL")
+    skip_count = sum(1 for it in items if it["status"] == "SKIP")
+    if not keep_tmp:
+        shutil.rmtree(box, ignore_errors=True)
+    return {"ok": True, "root": str(box), "mode": "self-test", "items": items,
+            "pass_count": pass_count, "fail_count": fail_count, "skip_count": skip_count,
+            "kept_tmp": keep_tmp}
+
+
+def render_self_test(res: dict) -> str:
+    lines = ["[six_layer_check] 引擎自检（self-test · rule 64 回归网 · 改引擎后必跑）"]
+    for it in res["items"]:
+        mark = {"PASS": "✓", "FAIL": "✗", "SKIP": "-"}.get(it["status"], "?")
+        lines.append(f"  {mark} [{it['status']:4s}] {it['name']}"
+                     + (f"  ({it['detail']})" if it["detail"] else ""))
+    lines.append(f"总计：{res['pass_count']} PASS / {res['fail_count']} FAIL / {res['skip_count']} SKIP"
+                 + (f"（沙箱保留：{res['root']}）" if res["kept_tmp"] else ""))
+    if res["fail_count"]:
+        lines.append("✗ 引擎自检 FAIL——有回归，按上表逐条定位（不要跳过）")
+    else:
+        lines.append("✓ 引擎自检通过（SKIP = 本机缺该环境能力，按 rule 42 记未验证）")
+    return "\n".join(lines)
+
+
 def main():
     _force_utf8_stdio()
     argv = sys.argv[1:]
     verb = None
-    if argv and argv[0] in ("render-silent-fail", "product-assert", "active-tree"):
+    if argv and argv[0] in ("render-silent-fail", "product-assert", "active-tree", "self-test"):
         verb = argv[0]
         argv = argv[1:]
     force_reason = None
@@ -1099,20 +1377,29 @@ def main():
     strict = "--strict" in flags
     as_json = "--json" in flags
 
+    if verb == "self-test":
+        res = run_self_test(keep_tmp="--keep-tmp" in flags)
+        if as_json:
+            _safe_print_json(res)
+        else:
+            _safe_print(render_self_test(res))
+        bad = res["fail_count"] + (res["skip_count"] if strict else 0)
+        sys.exit(1 if bad else 0)
+
     if verb == "active-tree":
         dirs = args or ["."]
         results = [check_active_tree(d, userdata) for d in dirs]
         if not any(r.get("ok") for r in results):
-            print(f"[six_layer_check] {results[0].get('error')}")
+            _safe_print(f"[six_layer_check] {results[0].get('error')}")
             sys.exit(2)
         if as_json:
-            print(json.dumps(results if len(results) > 1 else results[0], ensure_ascii=False, indent=2))
+            _safe_print_json(results if len(results) > 1 else results[0])
         else:
             parts = [render_active_tree_report(r) if r.get("ok")
                      else f"[six_layer_check] {r.get('error')}" for r in results]
             if len(results) > 1:
                 parts.append(render_active_tree_compare(results))
-            print("\n".join(parts))
+            _safe_print("\n".join(parts))
         if strict and any(r.get("ok") and (r["evidence"] < 4 or not r["userdata_ok"]) for r in results):
             sys.exit(1)
         sys.exit(0)
@@ -1129,7 +1416,7 @@ def main():
         else:
             res = check_product_assert(project_dir)
         if not res.get("ok"):
-            print(f"[six_layer_check] {res.get('error')}")
+            _safe_print(f"[six_layer_check] {res.get('error')}")
             sys.exit(2)
         if verb == "product-assert" and force_reason:
             res["forced_skip"] = force_reason
@@ -1141,16 +1428,16 @@ def main():
             res["runtime"] = probe
             report = _probe_line(probe) + "\n" + report
         if as_json:
-            print(json.dumps(res, ensure_ascii=False, indent=2))
+            _safe_print_json(res)
         else:
-            print(report)
+            _safe_print(report)
         if strict and res.get("fail_count", 0) > 0:
             sys.exit(1)
         sys.exit(0)
 
     res = check(project_dir, mode)
     if not res.get("ok"):
-        print(f"[six_layer_check] {res.get('error')}")
+        _safe_print(f"[six_layer_check] {res.get('error')}")
         sys.exit(2)
     report = render_report(res)
     probe = _runtime_probe_safe()
@@ -1158,9 +1445,9 @@ def main():
         res["runtime"] = probe
         report = _probe_line(probe) + "\n" + report
     if as_json:
-        print(json.dumps(res, ensure_ascii=False, indent=2))
+        _safe_print_json(res)
     else:
-        print(report)
+        _safe_print(report)
     if strict and res.get("missing"):
         sys.exit(1)
     sys.exit(0)
