@@ -1,6 +1,6 @@
 ---
 name: six-layer-orchestrator
-description: 六层主 Agent 编排框架在 WorkBuddy 原生多 Agent 环境下
+description: 多agent六层联合编排框架（六层主 Agent 编排框架）在 WorkBuddy 原生多 Agent 环境下
 的完整实现（v3.16.0，含
 调度器/架构师角色分离、项目级反馈回路、架构交叉验证、Red Flags 可检查信号、要不要编排出口、三种运行模式、粗拆细拆、引擎/智能分离与 LLM 局限防线、断点恢复 SOP、经验蒸馏与文档读取学习回路、AI 代码验收纪律、效果类主观验收、外部依赖探针、项目生命周期状态机、硬约束优先原则、设计锁定原则、每步方向讨论 Gate、混合审查 AI初审+用户终审、共享质量Rubric与收敛标准、并行隔离、Wave级复盘、计划评审回合制、僵尸能力红线（无调用点=僵尸+preload参数焊死变体）、过程文档先行+解耦第一+共享交互hook信号+验收Gate不豁免、对抗式双架构师设计回路（rule 74）、调研配 crawler（rule 75）、合规检查脚本 six_layer_check（rule 64 引擎化）、引擎三件套脚本 checkpoint/cost_log/lifecycle 状态机硬拦截、蒸馏资产唯一真相源=独立仓库（rule 76）、子代理能力探测与直做模式（rule 77）、引擎三件套进Wave Gate（rule 78）、渲染端静默失效检查Gate（rule 79）、取证优先与现象排查卡（rule 80）、长排错会话检查点（rule 81）、归因闭环-现象消失证据（rule 41）、副作用审查子检查点（rule 68）、产物级断言 product-assert（rule 79 第六项）、环境快照漂移五族（rule 80）、项目内参照物优先（rule 64+R-011）、脚本Gate噪音甄别与空洞PASS（rule 79）、
 取证手段分层·结构性缺失grep三问（rule 80）、接手对齐三硬步骤·活跃树判定四证据（rule 82）、验收声明三要素（rule 80）、幂等导入可见性（R-012）、真实源码复现（framework-skill real-source-repro）、发布前置链单命令（rule 64）、产物断言时序校验（rule 79））。当用户说
