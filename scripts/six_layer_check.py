@@ -1356,11 +1356,72 @@ def render_self_test(res: dict) -> str:
     return "\n".join(lines)
 
 
+# ---------- dispatch-check / write-conflict（v3.17.0 新增 · 批1 引擎化） ----------
+# dispatch-check：派发前任务卡 lint（rule 78 引擎对齐）
+# write-conflict：并行写集冲突检查（读 progress.json 预期产物求交，rule 69/22）
+
+def check_dispatch_card(card_path: str) -> dict:
+    """派发前任务卡 lint：①≤150 行 ②有验收命令 ③两维档位打分 ④自包含声明 ⑤≥100 行有骨架。
+    判定逻辑归 rule 47 判定表（references/model_routing.md），本函数只查结构（消除双重引擎化）。"""
+    p = Path(card_path)
+    if not p.exists():
+        return {"ok": False, "error": f"任务卡不存在: {card_path}"}
+    text = p.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    problems = []
+    if len(lines) > 150:
+        problems.append(f"任务卡 {len(lines)} 行 > 150 行预算（rule 40 注入三级）")
+    if not re.search(r'验收|验证|verify|test|npm run|pytest|assert|EARS', text, re.I):
+        problems.append("缺验收命令/验收标准")
+    has_cog = re.search(r'认知类型|认知复杂度|机械|标准写码|设计决策', text)
+    has_cost = re.search(r'失败代价|回退成本|影响面|只读|孤岛|interfaces|共享模块', text)
+    if not (has_cog and has_cost):
+        problems.append("缺档位两维打分（认知类型 / 失败代价，rule 47 判定表）")
+    if not re.search(r'自包含|self-contained|上下文自包含', text):
+        problems.append("缺上下文自包含声明（rule 40）")
+    if len(lines) >= 100 and not re.search(r'骨架|伪代码|pseudo|skeleton|函数签名|接口签名', text):
+        problems.append("大任务(≥100 行)缺骨架/伪代码（rule 47②）")
+    return {"ok": not problems, "problems": problems, "lines": len(lines)}
+
+
+def check_write_conflict(project_dir: str) -> dict:
+    """并行写集冲突检查：读 progress.json expected_products（pending）求文件交集。
+    相交 → 强制合批（rule 22）或串行；不相交 → worktree 降为可选项（rule 69 隔离分级）。"""
+    root = Path(project_dir)
+    pj = root / "progress.json"
+    if not pj.exists():
+        return {"ok": True, "note": "无 progress.json（无预期产物清单），跳过"}
+    try:
+        state = json.loads(pj.read_text(encoding="utf-8"))
+    except Exception as e:
+        return {"ok": False, "error": f"progress.json 解析失败: {e}"}
+    pending = [e for e in (state.get("expected_products") or []) if e.get("status") == "pending"]
+    if not pending:
+        return {"ok": True, "note": "无 pending 预期产物，跳过"}
+    seen = {}
+    conflicts = []
+    for e in pending:
+        mod = e.get("module", "?")
+        for f in e.get("files", []):
+            fn = str(f).strip().replace("\\", "/")
+            if not fn:
+                continue
+            if fn in seen and seen[fn] != mod:
+                conflicts.append({"file": fn, "module_a": seen[fn], "module_b": mod})
+            else:
+                seen[fn] = mod
+    if conflicts:
+        return {"ok": False, "conflicts": conflicts,
+                "detail": "写集冲突：多模块预期写同一文件 → 强制合批(rule 22)或串行，禁止并行写"}
+    return {"ok": True, "note": f"无写集冲突（{len(pending)} 个模块 pending，文件所有权互斥）"}
+
+
 def main():
     _force_utf8_stdio()
     argv = sys.argv[1:]
     verb = None
-    if argv and argv[0] in ("render-silent-fail", "product-assert", "active-tree", "self-test"):
+    if argv and argv[0] in ("render-silent-fail", "product-assert", "active-tree", "self-test",
+                            "dispatch-check", "write-conflict"):
         verb = argv[0]
         argv = argv[1:]
     force_reason = None
@@ -1403,6 +1464,40 @@ def main():
         if strict and any(r.get("ok") and (r["evidence"] < 4 or not r["userdata_ok"]) for r in results):
             sys.exit(1)
         sys.exit(0)
+
+    if verb == "dispatch-check":
+        if not args:
+            _safe_print("[six_layer_check] dispatch-check 需要: <任务卡路径> [--force-with-reason=理由]")
+            sys.exit(1)
+        res = check_dispatch_card(args[0])
+        if force_reason:
+            res["forced_skip"] = force_reason
+            res["ok"] = True
+            res["problems"] = []
+        probe = _runtime_probe_safe()
+        if as_json:
+            _safe_print_json(res)
+        else:
+            if res.get("ok"):
+                head = (_probe_line(probe) + "\n") if probe else ""
+                _safe_print(head + f"[dispatch-check] ✓ 任务卡通过（{res.get('lines')} 行）")
+            else:
+                for prob in res.get("problems", []):
+                    _safe_print(f"[dispatch-check] ✗ {prob}")
+        sys.exit(0 if res.get("ok") else 1)
+
+    if verb == "write-conflict":
+        res = check_write_conflict(args[0] if args else ".")
+        if as_json:
+            _safe_print_json(res)
+        else:
+            if res.get("ok"):
+                _safe_print(f"[write-conflict] ✓ {res.get('note') or '通过'}")
+            else:
+                _safe_print(f"[write-conflict] ✗ {res.get('detail')}")
+                for c in res.get("conflicts", []):
+                    _safe_print(f"  {c['file']} ← {c['module_a']} vs {c['module_b']}")
+        sys.exit(0 if res.get("ok") else 1)
 
     project_dir = args[0] if args else "."
     mode = "auto"
