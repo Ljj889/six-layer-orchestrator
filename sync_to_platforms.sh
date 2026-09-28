@@ -25,7 +25,7 @@ DIRS=("knowledge" "references" "scripts")
 
 # 目标平台定义（可自行增删）
 declare -A TARGETS=(
-  [wb]="C:/Users/one/.workbuddy/skills/six-layer-orchestrator"
+  [wb]="C:/Users/one/.workbuddy/skills/六层编排框架"
   [cb]="C:/Users/one/.codebuddy/skills/six-layer-orchestrator"
   [codex]="D:/Ai/codex/skills/six-layer-orchestrator"
 )
