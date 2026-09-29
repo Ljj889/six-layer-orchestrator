@@ -11,10 +11,11 @@
 exploration_budget: int（单位：轮/turn；缺省不强制，仅当显式给出时生效；探索≤N 轮后必须产出，禁止无限探索）
 model: <tier>（派发 Agent 的 model 参数档位：lite/default/reasoning；各角色默认值见 references/model_routing.md）
 
-## 环境铁律（v3.9.1 内置 · ChatCut 花字开发教训 F-03）
+## 环境铁律（v3.9.1 内置 · ChatCut 花字开发教训 F-03；v3.20.0 增第 4 条）
 - 禁止 `pytest --basetemp`（会在工作区生成 .pytest_basetemp/ 垃圾目录、污染仓库）——测试结果用 `--junitxml` 拿数字
 - 禁止把临时文件/缓存目录留在项目工作区（git 未跟踪的垃圾目录必须清理或移到 $TEMP）
 - 只写分配给本模块的文件，禁止触碰/覆盖其他模块或共享文件（rule 22 合批除外）
+- **遇错/卡壳先三环检索，三环未跑完禁止试错（v3.20.0 新增 · rule 64 泛化 + rule 61 D48）**：遇到报错、外部 API/平台行为诡异、库/框架用法不明、效果不对时——先 ① grep 项目内已验证同类实现 ② `read_knowledge(问题关键词)` 经验库 ③ WebSearch（关键词 = 平台/库 + API/功能名 + 症状，**中英各搜一遍**，优先官方文档/GitHub Issues/官方论坛，结论标来源）；三环无果才试错，且**试要成组**（多候选 + 验收断言 + 结果全部落日志，**禁止一轮押一种**）。**检索留痕**（途径 → 来源 → 结论）写进 self_check / 回报；无卡壳填 N/A——反复试错无留痕 = 该回报按未验证处理
 
 ## 任务说明质量自检（v3.9.4 新增 · 番茄钟核心洞察"任务拆得好不好决定 90% 成败"）
 
@@ -127,7 +128,8 @@ model: default（高频写码平衡成本；<50行机械改动降到 lite，最�
       "contract": "✅/❌ 合约遵守情况",
       "interfaces": "✅/❌ 接口声明完整性",
       "error_handling": "✅/❌ 边界处理",
-      "no_secrets": "✅/❌ 无敏感信息"
+      "no_secrets": "✅/❌ 无敏感信息",
+      "lookup_first": "✅/❌/N/A 遇错先检索（三环检索留痕：途径 → 来源 → 结论；无卡壳填 N/A）"
     },
     "integration_notes": "对接备注：依赖的接口、需要审查员重点看的集成点"
   }
@@ -191,7 +193,7 @@ model: default（严查契约/签名漂移；复杂契约或细致比对可升 r
 ## L3 schema 定义（validate_output.py 使用）
 
 - 架构师输出：`{"modules": [{"id": str, "name": str, "description": str, "dependencies": [str], "outputs": [{interface, consumers}], "acceptance": str}]}`
-- 程序员输出：`{"module": str, "code": str, "manifest": {"files_written": [str], "self_check": {"contract": str, "interfaces": str, "error_handling": str, "no_secrets": str}, "integration_notes": str}}`（code 为小代码内联或大代码 file 引用）
+- 程序员输出：`{"module": str, "code": str, "manifest": {"files_written": [str], "self_check": {"contract": str, "interfaces": str, "error_handling": str, "no_secrets": str, "lookup_first": str}, "integration_notes": str}}`（code 为小代码内联或大代码 file 引用；lookup_first 为 v3.20.0 新增检索留痕字段，无卡壳填 N/A）
 - 审查员输出：`{"module": str, "verdict": "PASS|FAIL", "checks": [{"item": str, "pass": bool, "detail": str}], "issues": [str], "feedback": str}`
 
 ## LOOP 注入示例（L4 落地）

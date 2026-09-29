@@ -7,6 +7,10 @@
 # v1.1 - 2026-09-12 - version check upgraded: sample >=2 marks (first+last) instead of
 #        only the first one; detect target-leads-repo drift; add SKILL.md MD5 +
 #        per-dir file counts. Reason: v3.14.0 drift was missed by the single-mark check.
+# v1.2 - 2026-09-30 - fix wb target path: the .sh twin was fixed in v3.18.0
+#        (six-layer-orchestrator -> the real CJK skill dir name) but the .ps1 was missed,
+#        so ps1 sync would silently write into a non-existent old dir. The CJK dir name
+#        is spelled via UTF-16 code units to keep this file ASCII-only.
 #
 # Usage:
 #   powershell -File sync_to_platforms.ps1            # sync all three targets
@@ -28,8 +32,11 @@ $ErrorActionPreference = 'Stop'
 $repo = $PSScriptRoot
 $skill = 'SKILL.md'
 $dirs = @('knowledge', 'references', 'scripts')
+# wb skill dir name is CJK; spelled via code units (see header note) to keep this file
+# ASCII-only. Do NOT hardcode the CJK string literal here (PS 5.1 mis-decodes BOM-less UTF-8).
+$wbDirName = -join [char[]]@(0x516D, 0x5C42, 0x7F16, 0x6392, 0x6846, 0x67B6)
 $targets = [ordered]@{
-  wb    = 'C:\Users\one\.workbuddy\skills\six-layer-orchestrator'
+  wb    = (Join-Path $env:USERPROFILE ".workbuddy\skills\$wbDirName")
   cb    = 'C:\Users\one\.codebuddy\skills\six-layer-orchestrator'
   codex = 'D:\Ai\codex\skills\six-layer-orchestrator'
 }
