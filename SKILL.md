@@ -1,7 +1,7 @@
 ---
 name: six-layer-orchestrator
-description: 多agent六层联合编排框架（六层主 Agent 编排框架）在 WorkBuddy 原生多 Agent 环境下
-的完整实现（v3.18.0，含
+description: 多agent六层联合编排框架（六层主 Agent 编排框架；WorkBuddy 侧同名 skill：六层编排框架；CodeBuddy 与 WorkBuddy 通用）在 WorkBuddy 原生多 Agent 环境下
+的完整实现（v3.19.0，含
 调度器/架构师角色分离、项目级反馈回路、架构交叉验证、Red Flags 可检查信号、要不要编排出口、三种运行模式、粗拆细拆、引擎/智能分离与 LLM 局限防线、断点恢复 SOP、经验蒸馏与文档读取学习回路、AI 代码验收纪律、效果类主观验收、外部依赖探针、项目生命周期状态机、硬约束优先原则、设计锁定原则、每步方向讨论 Gate、混合审查 AI初审+用户终审、共享质量Rubric与收敛标准、并行隔离、Wave级复盘、计划评审回合制、僵尸能力红线（无调用点=僵尸+preload参数焊死变体）、过程文档先行+解耦第一+共享交互hook信号+验收Gate不豁免、对抗式双架构师设计回路（rule 74）、调研配 crawler（rule 75）、合规检查脚本 six_layer_check（rule 64 引擎化）、引擎三件套脚本 checkpoint/cost_log/lifecycle 状态机硬拦截、蒸馏资产唯一真相源=独立仓库（rule 76）、子代理能力探测与直做模式（rule 77）、引擎三件套进Wave Gate（rule 78）、渲染端静默失效检查Gate（rule 79）、取证优先与现象排查卡（rule 80）、长排错会话检查点（rule 81）、归因闭环-现象消失证据（rule 41）、副作用审查子检查点（rule 68）、产物级断言 product-assert（rule 79 第六项）、环境快照漂移五族（rule 80）、项目内参照物优先（rule 64+R-011）、脚本Gate噪音甄别与空洞PASS（rule 79）、
 取证手段分层·结构性缺失grep三问（rule 80）、接手对齐三硬步骤·活跃树判定四证据（rule 82）、验收声明三要素（rule 80）、幂等导入可见性（R-012）、真实源码复现（framework-skill real-source-repro）、发布前置链单命令（rule 64）、产物断言时序校验（rule 79））。当用户说
 "用六层框架做 X"、"六层编排"、"主Agent编排"、"按六层流程开发 X"、或要求先调研开源项目再拆解并行开发时使用。流程：Phase -2 调研（Swarm+轮询+经验召回，每步先与人讨论方向）→ Phase -1 规格 → Phase -1.5 人机设计锁定（设计文档+代码骨架，计划评审回合制收敛，用户逐项确认）→ Phase 0 初始化（版本控制前置）→ Phase 0.5 知识资产初始化（防文件腐烂+经验召回 Gate）→ L0-L5（调度器只路由不自执行；架构师/程序员/审查员/验收员为 Layer1 平级子 Agent；接口契约→编排→校验→混合审查→流程控制→工程保障）→ Phase 5 合并（用户终审）→ Phase 6 用户反馈回路 → Phase 7 经验蒸馏（写，落盘独立仓库）→ read_knowledge（读）闭环，越用越聪明。
@@ -29,11 +29,13 @@ agent_created: true
 - 触发词：六层框架 / 六层编排 / 主Agent编排 / 按六层流程 / 拆模块并行开发
 
 
-## Workflow（六层流程 v3.18.0 · 全局编号 1-83，
+## Workflow（六层流程 v3.19.0 · 全局编号 1-83，
 删除号 13/15/17/25/26/30 留空不复用，新增从 46 起；有效规则 67 条 · 含 Phase 0.5 知识资产初始化防文件腐烂 · v3.9.1=ChatCut 反馈修订 / v3.9.2=调研经验转化 / v3.9.3=经验蒸馏+文档读取闭环 / v3.9.4=番茄钟实战反馈修订 / v3.9.5=多宠语音实战反馈 / v3.9.6=项目生命周期状态机 / v3.9.7=硬约束优先+纠错先检索 / v3.9.8=设计锁定原则 / v3.9.9=过程文档先行+解耦第一+验收Gate不豁免 / v3.9.10=对抗式双架构师设计回路+调研crawler / v3.10.0=每步方向讨论 Gate / v3.11.0=混合审查+质量Rubric+并行隔离+Wave级复盘+计划评审回合制 / v3.12.0=galagame 僵尸能力红线+monorepo构建顺序+web自动化环境坑+设置入口ADR / v3.13.0=WorkBuddy+CodeBuddy 两版合并统一编号（rule 73-75 并入，G-006 框架合规指南，引擎三件套 + six_layer_check 脚本）/ v3.13.1=蒸馏资产唯一真相源=独立仓库（rule 76，家俊决策 A）/ v3.14.0=实战复盘五反馈引擎化（rule 77 子代理能力探测与直做模式 / rule 78 引擎三件套进Wave Gate / rule 79 渲染端静默失效检查Gate / rule 80 取证优先与现象排查卡 / rule 81 长排错会话检查点）/ v3.14.1=改错能力研讨会收敛（rule 41 归因闭环：现象消失证据+单变量+取证排序 / rule 64 检索序加项目内参照 / rule 68 副作用审查子检查点 / rule 79 第六项产物级断言 product-assert / rule 80 环境快照第0步+漂移五族 / R-011 项目内参照物优先 / 交付取证包模板；0 条新 rule，全部扩展现有规则 / v3.15.0=便签反馈回合2蒸馏（rule 72 僵尸新变体·preload 参数焊死 / rule 73 共享交互 hook 信号 / rule 79 脚本 Gate 噪音甄别+空洞 PASS / rule 80 取证手段分层·结构性缺失 grep 三问 / 
 G-001 v1.3 Windows 运行环境坑；0 条新 rule，全部扩展现有规则） · v3.16.0=番茄宠物V2 单日实战蒸馏（新增 rule 82 接手对齐三硬步骤：活跃树判定四证据 + 根因可信度标签 + 勿动清单推翻条件；扩展 rule 5 分级纪律延伸到交接文档与行号锚定 / rule 41 真实源码函数复现 / rule 61 审美类反馈一句话确认 / rule 64 发布前置链单命令化 / rule 66 方向卡未响应分支 / rule 77 无框架痕迹项目的最小载体 + direct 模式最低验收线（四条） / rule 78 引擎脚本运行时探针 / rule 79 第六项 产物断言时序与稳定性 / rule 80 验收三要素 + 现象→可判定断言模板 + 输入输出可见日志；新增 R-012 幂等导入可见性 · framework-skill real-source-repro · G-001 v1.4 运行时探针/无 Git Bash · G-002 v2 净机模拟+审美反馈 · R-007 v3 切换类状态同步变体）【同日引擎对齐】scripts：+runtime_probe.py · six_layer_check 增 active-tree / product-assert 时序与稳定性 / render-silent-fail 噪音治理 / [PROBE] 报告头 · sync_to_platforms(.sh/.ps1) 校验升级（版本抽检 ≥2 处 + 领先检测 + MD5 + 逐目录文件数）；references：symptom_triage v2.1（验收三要素 + 现象→可判定断言模板）/ bug_fix_mode v1.5（真实源码复现 + 检索序补项目内参照）/ task_templates（+接手对齐卡 + direct 模式最低验收线） · **v3.17.0=多agent六层联合编排框架完善研讨·三轮对撞收敛（0 新 rule，连续第五版）**：rule 47 档位判据去行数化（两维判定表）+ B1 试运行 / rule 53 cost_log 三可选列（错位 T1-T4/任务卡行数/档位误判）/ rule 40 注入三级策略 / rule 55 三模式联动档位 / rule 64 Gate 预算法四条件 + kill 议题机制二分 / rule 66 确认分级（回退成本×方向性）/ rule 78 dispatch-check + write-conflict + audit 进 Wave Gate / rule 82 触发面扩至派发（T4）；scripts：cost_log audit 子命令（实锤判定式写死）+ six_layer_check dispatch-check/write-conflict 子命令；references：model_routing B1 判定表 + knowledge_loop D1 指针规则 + task_templates 注入三级；中文名定「多agent六层联合编排框架」
 
 **v3.18.0=新增 rule 83 上下文压缩规格（补 rule 40 缺的「压缩本身」，借鉴「伴学 App」契约 §11 三级级联）**：LC1 子 Agent 回报压缩 → LC2 已消费输入淘汰 → LC3 结构化摘要（六字段存 progress.json）；**分母用校准窗口、不用 API 上限**（伴学教训：分母错 → 与真实会话差 127 倍 → 压缩永不触发、summary 永远空、判据永远红灯，**调 ratio 没用**）；三条硬纪律（摘要不替代 progress.json / 指针优先带行号@commit / 不得转述子 Agent 原话）+ 压缩后复述测试 + 失败降级不阻塞；references 新增 `context_compression.md`。**同批修正**：`sync_to_platforms.sh` 的 wb 目标路径（`six-layer-orchestrator` → 实际目录名 `六层编排框架`）；**平台副本中 rule 76 残留的旧中文仓库路径**由本次 sync 覆盖修正（仓库侧本就正确）。
+
+**v3.19.0=render-silent-fail 纯 JS / 原生项目误报根因修复（0 新 rule，纯引擎缺陷修复）**：实战（图片查看器 Wave 4）跑 render-silent-fail 连续稳定误报 2 项，逐层取证后定位到**引擎自身两个缺陷**——① **注释剥离正则吃文件尾**：原写 `re.sub(r"/\*.*?\*/|^\s*//.*$", "", txt, flags=re.S | re.M)`，`re.S` 让第二支 `^\s*//.*$` 的 `.` 也匹配换行，于是**从第一条行注释一路吃到文件末尾**，其后的 `ipcMain.handle` / `ipcRenderer.invoke` 全部检索不到（**既误报"僵尸 handler"，也漏报真问题=假阴**；实证：`main/ipc.js` 第 148 行一条 `//` 之后 24 个 handler 全消失、`preload.js` 只剩前 11 条）。修法：拆成 `_strip_comments()` 两步（块注释 re.S / 行注释 re.M），两处调用点（IPC 一致性 + 打包进程探针）同步替换。② **preload d.ts 对非 TS 项目结构性不适用**：新增 `_is_ts_project()`（有 tsconfig 或有 .ts/.tsx 源即算 TS 项目），非 TS 项目降级 **SKIP** 而非 FAIL（这类项目本就没"类型门禁"，preload 契约靠"真 preload + 真 IPC"的渲染层效果验证兜底）。**附带加固**：`_check_ipc_consistency` 增包装器形态识别（`const invoke = (c) => ipcRenderer.invoke(c, ...)` 后再写 `invoke('x')` 的常见写法——只认字面量会把已调用通道误判成僵尸）+ 动态拼接通道（`` `ns:${x}` ``）标记 uncertain → 降级 SKIP 而非 FAIL。**自测 +3 用例**（4b 纯 JS→SKIP / 4c 包装器→PASS / 4d 行注释后 handler 仍在），引擎自检 25 PASS / 0 FAIL。**教训**：检查项报 FAIL 时先按 rule 79 v3.15.0"改动范围对焦 + 独立取证"验，**别急着改被测项目——可能是检查器自己在说谎**。
 
 ### Phase -2：调研学习（可复用借鉴优先，家俊版核心前置）
 
@@ -289,6 +291,13 @@ G-001 v1.3 Windows 运行环境坑；0 条新 rule，全部扩展现有规则）
     - **分层验证定位根因**：效果类调试用**维度交叉**（如音色×资源×提示词×强度 4 维），一次只动一维，锁定根因；
     - **维度化评分（业界 MOS/CMOS）**：不只听"好不好"——拆维度（自然度/情感符合度/韵律/音质）各打 1-5 分（MOS，ITU-T P.800）；迭代对比用相对分（CMOS："这版比上版好多少"），**盲测**（隐藏版本信息防先入为主）；个人项目可用"自己盲测 + 维度化"简化版，不必 20 人；
     - **试错预算上限（D5）**：效果攻坚设"试错轮数/金额上限"，超限强制暂停做决策，禁止无限合成测试；
+    - **卡壳先查证，再试错（D48 · 家俊多次强调）**：遇平台/API 行为诡异（静默失败、0 字节、神秘 null、只在真机复现）时，顺序**不许颠倒**：
+      ① **先 web 搜**（关键词 = 平台 + API 名 + 症状，中英各搜一遍；优先官方文档与社区同解）；
+      ② **再查工程内既有记录**（D 系列决定表 / 认知文档 / 历史踩坑日志 —— 往往同一个坑踩过第二次）；
+      ③ 查证无果**才**做**多候选对比实验**：每种候选都带**验收断言**、结果**全部落日志**，一轮把候选一次比完，**禁止一轮押一种**。
+      反面教材（2026-09-29 拍照入库）：`plus.android` 互操作下 `Files.copy(Path,Path)` 与 `readAllBytes→write` 都**不报错但产出 0 字节**；
+      我连试两轮（改代码 → 让她重上机 → 复现）才想起查证，一查即知 uni-app 应用层搬文件的正确方式是 `plus.io.resolveLocalFileSystemURL` + `FileEntry.copyTo`（DCloud 原生实现，**根本不经过** Java 互操作）。
+      教训一句话：**先查后试，试要成组**——否则每轮试错都要占用她的真机往返（最贵的资源）。
     - 审查清单加"主观效果预检"（D4）：效果类模块审查时要求附音频/样本并记录主观判断（即便审查 Agent 抓不了效果质量，也要留预检记录）。
 【v3.16.0 扩展 · 审美/口吻类低信息量反馈】用户说"看着不对 / 正规一点 / 太丑"这类反馈时：先给"我理解 = X；备选 = Y/Z；**默认按 X 做**，你否了我改"的**一句话确认**（不阻塞、可回退），并把理解写进交付说明；禁止反复追问（用户可能正忙），也禁止默默猜（可能整轮返工）。
 62. **外部依赖探针（v3.9.5 新增 · 多宠语音对话实战 D2/D3/D6）**：外部 API/第三方依赖**"文档说的" ≠ 真实行为**（AI 伴侣实战：任务书写"context_texts 支持复刻音色"实为仅官方音色，到 W4 才发现方向错）。要求：

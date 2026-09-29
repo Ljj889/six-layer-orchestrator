@@ -203,6 +203,18 @@ def _is_scan_excluded(name: str) -> bool:
     return name.lower().startswith(_SCAN_EXCLUDE_PREFIXES)
 
 
+def _strip_comments(text: str) -> str:
+    r"""去 JS/TS 注释。块注释跨行（re.S），行注释不跨行（re.M）——**必须分两步**。
+    v3.19.0 根因修复：原先写成一个正则 `/\*.*?\*/|^\s*//.*$` 配 re.S | re.M，
+    re.S 让第二支的 `.` 也匹配换行，于是 `^\s*//.*$` 从**第一条行注释一路吃到文件末尾**——
+    其后的 ipcMain.handle / ipcRenderer.invoke 全部检索不到：
+    既把已注册/已调用的通道误报成孤儿，也漏报真问题（假阴）。
+    实证：main/ipc.js 第 148 行一条 `//` 之后 24 个 handler 全消失。"""
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    text = re.sub(r"^\s*//.*$", "", text, flags=re.M)
+    return text
+
+
 def _walk_src(root: Path):
     """遍历源码文件（剪枝 node_modules/dist*/out-*/tmp* 等），yield (Path, 相对posix路径)"""
     for dirpath, dirnames, filenames in os.walk(root):
@@ -379,6 +391,18 @@ _DOM_CTOR_RE = re.compile(
     r"URL|File|Blob|FormData|Date|RegExp|Request|Response|Headers|Abort|Message|Worker)")
 
 
+def _is_ts_project(root: Path) -> bool:
+    """项目是否使用 TypeScript：有 tsconfig*.json，或存在 .ts/.tsx 源文件。
+    非 TS 项目本就没有"类型门禁"这回事，preload d.ts 检查对其结构性不适用
+    （v3.19.0 误报治理：纯 JS / 原生 Electron 项目会稳定误报 FAIL）。"""
+    if any(root.glob("tsconfig*.json")):
+        return True
+    for _p, relp in _walk_src(root):
+        if Path(relp).suffix.lower() in (".ts", ".tsx"):
+            return True
+    return False
+
+
 def _check_preload_dts(root: Path) -> dict:
     name = "preload window.* 引用均有类型声明"
     refs = set()
@@ -399,6 +423,13 @@ def _check_preload_dts(root: Path) -> dict:
         return {"key": "preload", "name": name, "status": "SKIP",
                 "detail": "renderer 未引用 window.*（可能经 import 暴露）"}
     if not dts_files:
+        # 非 TS 项目（无 tsconfig / 无 .ts 源）本就没有类型门禁，此项不适用 → SKIP 而非 FAIL。
+        # v3.19.0 误报治理：这类项目的 preload 契约靠"真 preload + 真 IPC"的渲染层效果验证兜底。
+        if not _is_ts_project(root):
+            return {"key": "preload", "name": name, "status": "SKIP",
+                    "detail": f"非 TS 项目（无 tsconfig / 无 .ts 源），类型门禁不适用；"
+                              f"renderer 引用了 window.{sorted(refs)[0]}.* 等，"
+                              f"请用渲染层效果验证脚本（真 preload + 真 IPC）兜底"}
         return {"key": "preload", "name": name, "status": "FAIL",
                 "detail": f"renderer 引用了 window.{sorted(refs)[0]}.* 等，但项目无任何 .d.ts 声明"
                           f"（preload 类型假绿，改 API 名不会报错）"}
@@ -423,6 +454,7 @@ def _check_ipc_consistency(root: Path) -> dict:
     name = "IPC 通道 preload↔main 集合一致"
     main_ch, preload_ch = set(), set()
     found = False
+    uncertain = False   # 存在动态构造的通道（模板串插值）→ 静态解析不可靠，降级 SKIP
     for p, relp in _walk_src(root):
         if Path(relp).suffix.lower() not in _SRC_EXTS:
             continue
@@ -430,7 +462,7 @@ def _check_ipc_consistency(root: Path) -> dict:
             txt = p.read_text(encoding="utf-8", errors="ignore")
         except Exception:
             continue
-        txt = re.sub(r"/\*.*?\*/|^\s*//.*$", "", txt, flags=re.S | re.M)  # 去注释
+        txt = _strip_comments(txt)  # 去注释（v3.19.0：分两步，防行注释吃文件尾）
         if "ipcMain" in txt:
             for mm in re.finditer(r"ipcMain\.(?:handle|on)\(\s*['\"`]([\w:.\-/]+)['\"`]", txt):
                 main_ch.add(mm.group(1))
@@ -439,6 +471,18 @@ def _check_ipc_consistency(root: Path) -> dict:
             for mm in re.finditer(r"ipcRenderer\.(?:invoke|send|on)\(\s*['\"`]([\w:.\-/]+)['\"`]", txt):
                 preload_ch.add(mm.group(1))
                 found = True
+            # 包装器形态（v3.19.0 误报治理）：常见写法是
+            #   const invoke = (channel) => (...args) => ipcRenderer.invoke(channel, ...args);
+            #   之后在 contextBridge 对象里写 invoke('x')。
+            # 只认 ipcRenderer 字面量会把这些"已调用"的通道漏掉，反被误判成"僵尸 handler"。
+            # 仅当检测到"通道来自参数"的包装器时才采集裸 invoke('x')，避免误匹配同名函数。
+            if re.search(r"ipcRenderer\.(?:invoke|send|sendSync)\(\s*[A-Za-z_$][\w$]*\s*[,)]", txt):
+                for mm in re.finditer(r"(?<![\w$.])(?:invoke|send|sendSync)\(\s*['\"`]([\w:.\-/]+)['\"`]", txt):
+                    preload_ch.add(mm.group(1))
+                    found = True
+            # 动态拼接通道（`ns:${x}`）→ 静态集合不完整，标记不确定
+            if re.search(r"ipcRenderer\.(?:invoke|send|sendSync)\(\s*`[^`]*\$\{", txt):
+                uncertain = True
     if not found:
         return {"key": "ipc", "name": name, "status": "SKIP",
                 "detail": "未发现字符串字面量通道（可能经常量注册或不用 IPC）"}
@@ -446,10 +490,18 @@ def _check_ipc_consistency(root: Path) -> dict:
     orphan_main = sorted(main_ch - preload_ch)
     if orphan_pre:
         extra = f"；另有未被调用的 handler: {', '.join(orphan_main)}" if orphan_main else ""
+        if uncertain:
+            return {"key": "ipc", "name": name, "status": "SKIP",
+                    "detail": "存在动态构造的 IPC 通道（模板串插值），静态解析不可靠 → 需人工复核（preload-only）: "
+                              + ", ".join(orphan_pre)}
         return {"key": "ipc", "name": name, "status": "FAIL",
                 "detail": "preload 调用但主进程未注册（invoke 静默无响应）: "
                           + ", ".join(orphan_pre) + extra}
     if orphan_main:
+        if uncertain:
+            return {"key": "ipc", "name": name, "status": "SKIP",
+                    "detail": "存在动态构造的 IPC 通道（模板串插值），静态解析不可靠 → 需人工复核（main-only）: "
+                              + ", ".join(orphan_main)}
         return {"key": "ipc", "name": name, "status": "FAIL",
                 "detail": "主进程注册但 preload 未调用（疑似僵尸 handler，参照 R-007）: "
                           + ", ".join(orphan_main)}
@@ -538,7 +590,7 @@ def _extract_expected_classes(root: Path) -> set:
             txt = p.read_text(encoding="utf-8", errors="ignore")
         except Exception:
             continue
-        txt = re.sub(r"/\*.*?\*/|^\s*//.*$", "", txt, flags=re.S | re.M)
+        txt = _strip_comments(txt)
         for mm in class_pat.finditer(txt):
             for tok in mm.group(1).split():
                 if "${" in tok:
@@ -1270,6 +1322,39 @@ def run_self_test(keep_tmp: bool = False) -> dict:
     add("preload d.ts：真未声明项仍报出",
         pl4.get("status") == "FAIL" and "undeclaredApi" in pl4.get("detail", ""),
         pl4.get("detail", "")[:64])
+
+    # 用例 4b（v3.19.0 误报治理）：纯 JS 项目（无 tsconfig / 无 .ts）→ SKIP 而非 FAIL
+    fe5 = box / "fe5"
+    _w(fe5 / "renderer" / "app.js", "const x = window.myApi.ping()\n", base)
+    _w(fe5 / "main" / "preload.js", "contextBridge.exposeInMainWorld('api', {})\n", base)
+    pl5 = {it["key"]: it for it in check_render_silent_fail(str(fe5))["items"]}.get("preload", {})
+    add("preload d.ts：纯 JS 项目（无 tsconfig/.ts）→ SKIP 不误报",
+        pl5.get("status") == "SKIP", f"status={pl5.get('status')} · {pl5.get('detail', '')[:56]}")
+
+    # 用例 4c（v3.19.0 误报治理）：preload 用包装器 invoke('x') → IPC 一致性 PASS
+    fe6 = box / "fe6"
+    _w(fe6 / "main" / "preload.js",
+       "const { ipcRenderer, contextBridge } = require('electron')\n"
+       "const invoke = (channel) => (...args) => ipcRenderer.invoke(channel, ...args)\n"
+       "contextBridge.exposeInMainWorld('api', { getConfig: invoke('getConfig') })\n", base)
+    _w(fe6 / "main" / "ipc.js", "ipcMain.handle('getConfig', () => ({}))\n", base)
+    ipc6 = {it["key"]: it for it in check_render_silent_fail(str(fe6))["items"]}.get("ipc", {})
+    add("IPC 一致性：包装器 invoke('x') 被识别 → PASS（不误判僵尸 handler）",
+        ipc6.get("status") == "PASS", f"status={ipc6.get('status')} · {ipc6.get('detail', '')[:60]}")
+
+    # 用例 4d（v3.19.0 根因修复）：行注释不得吃掉其后代码（re.S 吃文件尾的老 bug）
+    fe7 = box / "fe7"
+    _w(fe7 / "main" / "preload.js",
+       "const { ipcRenderer, contextBridge } = require('electron')\n"
+       "const invoke = (c) => (...a) => ipcRenderer.invoke(c, ...a)\n"
+       "contextBridge.exposeInMainWorld('api', { a: invoke('a'), b: invoke('b') })\n", base)
+    _w(fe7 / "main" / "ipc.js",
+       "// 这是一条行注释，其后还有 handler\n"
+       "ipcMain.handle('a', () => 1)\n"
+       "ipcMain.handle('b', () => 2)\n", base)
+    ipc7 = {it["key"]: it for it in check_render_silent_fail(str(fe7))["items"]}.get("ipc", {})
+    add("IPC 一致性：行注释后的 handler 仍被检索（注释剥离不吃文件尾）",
+        ipc7.get("status") == "PASS", f"status={ipc7.get('status')} · {ipc7.get('detail', '')[:60]}")
 
     # 用例 5：本脚本自身输出（GBK 环境不崩）
     rb = _run_proc([py, self_path, "active-tree", str(live), "--userdata=" + str(ud)], env_gbk)
