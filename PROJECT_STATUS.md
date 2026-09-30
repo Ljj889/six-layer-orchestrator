@@ -54,6 +54,7 @@
 | 09-30 14:03 | cli | L1a 离线硬层：cli.py + 自测总入口 + 状态板弱校验 + 写入类产物断言 + 两个存量 bug 修复 | commit 94fc64c |
 | 09-30 14:03 | cli | L1b：route_error(表外置) + compress LC1/LC2 + design_gate(挂 pending) | commit a647814 |
 | 09-30 14:03 | cli | L2：llm_client 默认关闭 + 四步防线 + 真实往返验证 | commit d61aea4 |
+| 09-30 14:14 | cli | 交付报告出（验收口 / 交付清单 / 五条实测发现 / 诚实边界 / 回滚动作） | 交付报告_引擎层_v3.21.0_2026-09-30.md · commit 99807d1 |
 
 ---
 
