@@ -1,8 +1,12 @@
 # 错误路由器设计（引擎层）
 
-> 版本：v1.0 | 2026-08-11（v3.9 编排 A 落地 · 源自 IMA《主Agent编排系统_近期迭代任务》T4）
-> 状态：**设计文档，引擎层实现时写入**（当前 WorkBuddy 版由调度器 prompt 里的 LLM 判断路由；迁移到 Python 引擎层时实现为纯规则函数）
-> 对应：SKILL.md rule 33（失败分类+路由）
+> 版本：v2.0 | 2026-09-30（v3.21.0 引擎落地 · D-14）；v1.0 = 2026-08-11（v3.9 编排 A 落地）
+> 状态：**已引擎化** —— `scripts/route_error.py` + 关键词表外置 `scripts/route_error_table.json`
+> 对应：SKILL.md rule 33（失败分类+路由）；`cli.py route-error`
+> **v2.0 变更（D-14）**：① 关键词表**外置为数据文件**（带 `version` 字段）→ **改规则只改表，不发版**；
+> ② 补合成样本**语法级单测**（3 条验收口 + 契约优先 + 外置表反证）；
+> ③ **回归评测挂 pending**（需真实 FAIL 语料；伴学样本 = 1）；
+> ④ **"审查 FAIL 真伪甄别"从本条剥离**（R-05：误报甄别与路由正交，登记为待立规则）。
 
 ## 问题
 
@@ -58,6 +62,13 @@ def route_error(review_report: str) -> str:
 
 ## 落地说明
 
-- **当前 WorkBuddy 版**：调度器在 prompt 中按上述关键词分类逻辑判断（LLM 辅助），本设计作为审查标准。
-- **引擎层迁移时**：实现为 orchestrator.py 内的纯 Python 函数，审查报告落盘后直接调用，不经过 LLM。
-- 验收：输入含"合约条款过严" → 返回 "scheduler"；含"type hint 缺失" → "programmer_N"；无法判断 → "human"。
+- **已引擎化（v3.21.0 · L1b）**：`python scripts/route_error.py "<报告文本>"`（或 `cli.py route-error`）
+  —— 纯规则函数，**不调 LLM**。关键词表在 `scripts/route_error_table.json`（`version=v1.0`，30 个关键词）。
+- **改规则 → 只改表**：新增/调整关键词、改 target 映射，都只动 JSON，**代码不发版**。
+  表改动后应重跑 `engine_selftest --only TestL1bTools`（三条验收口 + 契约优先 + 外置表反证）。
+- **验收（已固化为单测）**：输入含"合约条款过严" → `scheduler`；含"type hint 缺失" → `programmer_N`；
+  无法判断 → `human`；同时含合约与代码关键词 → 仍 `scheduler`（T1 修正）。
+- **挂 pending 项**（`route_error.py --status` 可打印）：
+  ① 回归评测（需真实 FAIL 语料）；② 审查 FAIL 真伪甄别（R-05，待立新规则）。
+- **它不保证什么**：本条只做"错误类型 → 目标角色"的映射；**不判 FAIL 本身真伪**、
+  **不做回归评测**。具体重跑哪个模块仍由调度器结合模块 id 决策。

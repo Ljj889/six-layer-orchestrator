@@ -450,6 +450,97 @@ class TestWriteAssert(unittest.TestCase):
             self.assertIn("不占降级计数器", src, "环境缺失必须显式声明不占计数器")
 
 
+# ══════════════ ⑪ L1b：route_error / compress / design_gate ══════════════
+class TestL1bTools(unittest.TestCase):
+    # ── route_error（D-14 三条验收口）──
+    def test_route_error_acceptance_three(self):
+        cases = [
+            ("合约条款过严，需要重新确认", "scheduler"),   # 合约级 → 调度器
+            ("type hint 缺失，请补类型标注", "programmer_N"),  # 代码级 → 程序员
+            ("嗯……这个说不上来哪里不对", "human"),        # 无法判断 → 人工
+        ]
+        re_mod = _load("route_error")
+        table = re_mod.load_table()
+        for text, expect in cases:
+            with self.subTest(text=text):
+                got = re_mod.route_error(text, table)["target"]
+                self.assertEqual(got, expect, f"「{text}」应路由 {expect}，实际 {got}")
+
+    def test_route_error_contract_priority(self):
+        """合约级命中优先于代码级（T1 修正）：同时含两类关键词仍应 scheduler。"""
+        re_mod = _load("route_error")
+        res = re_mod.route_error("合约条款冲突，同时 type hint 也缺失", re_mod.load_table())
+        self.assertEqual(res["target"], "scheduler")
+        self.assertEqual(res["bucket"], "contract")
+
+    def test_route_error_table_is_external_and_versioned(self):
+        """反向 fixture：表是外置数据文件且带版本号 —— 改表即可改规则（不发版）。"""
+        re_mod = _load("route_error")
+        table = re_mod.load_table()
+        self.assertIn("version", table, "关键词表必须带版本号")
+        import copy as _copy
+        mutated = _copy.deepcopy(table)
+        mutated["keywords"]["code"] = ["不存在的关键词___"]
+        mutated["keywords"]["arch"] = []
+        mutated["keywords"]["contract"] = []
+        res = re_mod.route_error("type hint 缺失", mutated)
+        self.assertEqual(res["target"], "human",
+                         "改表后行为必须随之改变（证明规则真在外置表里）")
+
+    # ── compress（rule 83 LC1/LC2）──
+    def _bundle(self, **over):
+        b = {
+            "phase": "P2/L1b", "modules": [{"id": "m1"}],
+            "ruled_out": ["假设A"], "top_suspect": None,
+            "open_items": ["x"], "next": "L2",
+            "consumed_inputs": [
+                {"id": "spec", "path": "spec.md", "commit": "abc1234", "consumed_by": "architect"},
+                {"id": "raw", "path": "raw.log", "consumed_by": None},
+            ],
+            "subagent_reports": [
+                {"agent": "programmer_1", "verdict": "PASS",
+                 "artifacts": ["a.py@abc1234", "b.py"], "open_questions": [],
+                 "narrative": "N" * 5000},
+            ],
+        }
+        b.update(over)
+        return b
+
+    def test_compress_mechanical_no_llm_and_restate(self):
+        cp = _load("compress")
+        res = cp.compress(self._bundle())
+        self.assertEqual(res["llm_calls"], 0, "LC1/LC2 是机械层，不得花 LLM")
+        rt = res["restate_test"]
+        for k in ("phase", "ruled_out", "open_items", "next"):
+            self.assertTrue(rt[k], f"复述测试项 {k} 应可复述")
+        self.assertTrue(rt["ok"])
+        s = res["stats"]
+        self.assertEqual(s["lc2_inputs_dropped"], 1, "已消费输入应被淘汰 1 条")
+        self.assertEqual(s["lc2_inputs_kept"], 1, "未消费输入应保留")
+        self.assertGreater(s["narrative_chars_dropped"], 0, "叙述正文应被丢弃并计数")
+
+    def test_compress_weak_pointer_detection(self):
+        cp = _load("compress")
+        res = cp.compress(self._bundle())
+        weak = {p["path"] for p in res["weak_pointers"]}
+        self.assertIn("b.py", weak, "缺 @commit 的产物指针应被判 weak")
+        self.assertNotIn("a.py@abc1234", weak, "带 @commit 的指针不该被判 weak")
+
+    def test_compress_restate_fails_on_missing_field(self):
+        """反向 fixture：缺 next 字段 → 复述测试必须 FAIL（否则这层没牙齿）。"""
+        cp = _load("compress")
+        res = cp.compress(self._bundle(next=None))
+        self.assertFalse(res["restate_test"]["ok"], "缺 next 时复述测试必须 FAIL")
+
+    # ── design_gate（挂 pending 硬门）──
+    def test_design_gate_is_pending_not_green(self):
+        rc, out = _cli_out(["run", "design_gate"], isolate=False)
+        self.assertEqual(rc, 3, "design_gate 必须返回 pending 码 3（schema 未定稿）")
+        self.assertIn("PENDING", out)
+        self.assertIn("semantic=PENDING", out, "退出码 3 必须映射为 PENDING 而不是 PASS")
+        self.assertIn("不保证什么", out, "必须随件交付『它不保证什么』")
+
+
 # ══════════════ 汇总 ══════════════
 _ONLY = ""
 

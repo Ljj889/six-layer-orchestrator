@@ -1,0 +1,31 @@
+{
+  "_note": "route_error 关键词表（外置数据文件 —— 改规则只改本文件，不发版 · D-14）",
+  "version": "v1.0",
+  "updated": "2026-09-30",
+  "targets": {
+    "code": "programmer_N",
+    "arch": "architect",
+    "contract": "scheduler",
+    "none": "human"
+  },
+  "priority": ["contract", "code", "arch"],
+  "keywords": {
+    "code": [
+      "type hint", "typehint", "类型标注", "docstring", "变量名", "函数签名",
+      "@interface", "缩进", "import", "语法", "命名规范", "lint", "格式"
+    ],
+    "arch": [
+      "模块拆分", "依赖环", "接口冲突", "粒度", "遗漏模块",
+      "边界不清晰", "DAG", "循环依赖", "架构", "分层的", "耦合"
+    ],
+    "contract": [
+      "合约", "contract", "规范冲突", "条款", "跨语言格式", "契约"
+    ]
+  },
+  "notes": [
+    "contract 命中即 scheduler（哪怕同时含 code 关键词）——合约由调度器+人定，架构师无权限改（T1 修正）",
+    "命中 0 → human（禁止猜）",
+    "本条不判『审查 FAIL 真伪』（R-05 已剥离）",
+    "回归评测挂 pending：需真实 FAIL 语料，伴学样本=1"
+  ]
+}

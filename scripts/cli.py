@@ -346,7 +346,13 @@ def _run_isolate(script_path: Path, argv: list) -> tuple:
 
 
 def classify(script: str, rc: int, output: str) -> str:
-    """Gate 语义契约层：把 (rc, 输出) 映射为 PASS/WARN/FAIL/SKIP（与调用形态无关）。"""
+    """Gate 语义契约层：把 (rc, 输出) 映射为 PASS/WARN/FAIL/SKIP/PENDING（与调用形态无关）。
+
+    `rc == BYPASS_RC(3)` 统一表示「**未执行 / 未交付**」（总开关旁路、`design_gate` 挂 pending）
+    —— 单独一档 `PENDING`，**绝不落进 PASS**（否则"未做"会被当成"做好了"）。
+    """
+    if rc == BYPASS_RC:
+        return "PENDING"
     if rc != 0:
         return "FAIL"
     for pat, verdict in SEMANTICS.get(script, {}).get("patterns", []):
