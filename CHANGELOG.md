@@ -26,6 +26,10 @@
 - **引擎总开关 `SIXLAYER_ENGINE=off`**（R-01 回滚路径）：cli 全部子命令旁路，回落提示词驱动（一行 env，零成本）。
 - **references 新增 4 件**：`real-source-repro.md`（接缝替身模板 · D-04 主载体）、`decisions.md`（Dxx 决策编号制 · D-07）、`collab_artifacts.md`（状态板 + 交接件可选模板 · D-02/D-03）、`engine_config.md`（参数单一来源 canonical source · D-18）。
 - **scripts 新增 2 件**：`engine_config.json`（参数机读镜像）、`rule_index.py`（规则数/版本标记/映射表自报 · R-13）。
+- **L0 探针层**（`_probe/l0_probe.py` + fixture）：`/models` **双向核对**实测——`deepseek-v4-flash`/`deepseek-chat`/`deepseek-reasoner` 全部 **HTTP 200 但 `model` 被静默改回 `deepseek-flash`**（**不是 404**）；`effort.supported_levels` 实测 = `["low","high","max"]`（**无 `none`**）；`reasoning_effort` 档位**确实生效**；`temperature` 无法证明有效。**硬门：无 fixture → 不许动 L2（已满足）**。
+- **L1a 离线硬层**：`cli.py`（in-process + `--isolate` 逃生阀 + 三约定分派 + **Gate 语义契约层** + 参数校验 + 版本寻址 + 总开关）· `engine_selftest.py`（**三条必测断言** + **禁裸 assert** + `-O` 一致性 + **离线护栏**）· `state_board.py`（**弱校验**：结构合法 + 事件流行数单调不减）· `write_assert.py`（产物断言**第三类**：最终位置逐项回读 + 0 字节三分语义 + 降级计数器）。
+- **L1b 挂轻门层**：`route_error.py`（纯规则 + **关键词表外置**，改规则不发版）· `compress.py`（**LC1/LC2 机械层，`llm_calls=0`** + 复述测试）· `design_gate.py`（**挂 pending**，exit 3）。
+- **L2 需真实往返层**：`llm_client.py`（**默认关闭** + **200 假绿四步防线** + 手写 SSE + 自建连接层 + 预算**漏账 fail-closed** + LC3），已跑通真实非流式/流式往返。
 - **Red Flags 新增 5 条**：弱校验通过当"事件流完整" / 用 mock 冒充引擎自测 / 失败路径未写盘 / 引擎参数非法却静默取默认 / 写入搬运只看返回值不看最终位置。
 
 ### Changed

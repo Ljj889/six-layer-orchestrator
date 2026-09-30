@@ -288,7 +288,7 @@ class TestOfflineGuard(unittest.TestCase):
         if not _OFFLINE_GUARD["active"]:
             self.skipTest("离线护栏未启用（--allow-net）")
         with self.assertRaises(Exception):
-            socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            socket.getaddrinfo("example.invalid", 443)
 
     def test_l0_probe_is_not_run_by_selftest(self):
         """自测不得触网：L0 探针脚本必须**不在**本套件调用图上。"""
@@ -541,6 +541,107 @@ class TestL1bTools(unittest.TestCase):
         self.assertIn("不保证什么", out, "必须随件交付『它不保证什么』")
 
 
+# ══════════════ ⑫ L2：llm_client（默认关闭 + 四步防线 + 预算 fail-closed）══════════════
+class TestL2LlmClient(unittest.TestCase):
+    def test_default_off_returns_pending(self):
+        """默认关闭：不发任何请求，退出码 3 → 语义 PENDING（绝不落进 PASS）。"""
+        env = {k: v for k, v in os.environ.items()
+               if k not in ("SIXLAYER_LLM", "DEEPSEEK_API_KEY")}
+        r = subprocess.run([PY, str(CLI), "run", "llm_client", "--chat", "hi"],
+                           capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", env=env)
+        self.assertEqual(r.returncode, 3, "默认关闭必须 rc=3")
+        self.assertIn("semantic=PENDING", (r.stdout or "") + (r.stderr or ""))
+
+    def test_sse_parser_replays_real_fixture(self):
+        """离线回归：手写 SSE 解析器重放 L0 真实 fixture（录制重放不是 mock，D-04）。"""
+        fixture = SKILL_DIR / "_probe" / "l0_2_stream_raw.sse"
+        if not fixture.exists():
+            self.skipTest("缺 L0 fixture（_probe/l0_2_stream_raw.sse）")
+        llm = _load("llm_client")
+        res = llm.parse_sse(fixture.read_text(encoding="utf-8", errors="replace"))
+        self.assertEqual(res["errors"], [], "真实 fixture 不该有非法帧")
+        self.assertTrue(res["done"], "应识别 `data: [DONE]`")
+        self.assertGreater(len(res["frames"]), 10)
+        self.assertEqual(len(res["usage_frames"]), 1, "实测 usage 只在尾帧 1 处")
+        self.assertIsNotNone(llm.extract_reasoning_tokens(res["usage_frames"][-1]))
+
+    def test_sse_parser_strict_no_repair(self):
+        """反向 fixture：非法 JSON 帧必须**报错**而不是被静默修复（D-12①）。"""
+        llm = _load("llm_client")
+        bad = "data: {\"ok\":1}\n\ndata: {not json at all\n\ndata: [DONE]\n"
+        res = llm.parse_sse(bad)
+        self.assertEqual(len(res["errors"]), 1, "非法帧必须被记入 errors（不得修复）")
+        self.assertTrue(res["done"])
+
+    def test_four_defenses(self):
+        llm = _load("llm_client")
+        # ① 响应回显核对
+        ok, _ = llm.defense_1_echo("deepseek-flash", {"model": "deepseek-flash"})
+        self.assertTrue(ok)
+        bad, msg = llm.defense_1_echo("deepseek-v4-flash", {"model": "deepseek-flash"})
+        self.assertFalse(bad, "被静默改写的 model 必须判 FAIL")
+        # ② 能力协商核对
+        self.assertTrue(llm.defense_2_capability("max", ["low", "high", "max"])[0])
+        self.assertFalse(llm.defense_2_capability("none", ["low", "high", "max"])[0],
+                         "none 不在实测域内，必须拦下")
+        # ③ 语义指纹
+        seen = {}
+        self.assertTrue(llm.defense_3_fingerprint({"model": "m", "object": "o",
+                                                   "system_fingerprint": "f"}, seen)[0])
+        self.assertFalse(llm.defense_3_fingerprint({"model": "m2", "object": "o",
+                                                    "system_fingerprint": "f"}, seen)[0],
+                         "指纹漂移必须 FAIL")
+        # ④ 禁用透明修复组件
+        ok4, msg4 = llm.defense_4_no_repair_lib()
+        self.assertTrue(ok4, f"引擎里不该出现 json_repair 类依赖：{msg4}")
+
+    def test_budget_fail_closed_vs_degraded(self):
+        """漏账（真发起却无 usage）→ FAIL_CLOSED；显式降级 → 不计漏账。"""
+        llm = _load("llm_client")
+        cfg = llm.load_cfg()
+        with TmpProject() as box:
+            p = llm.ledger_path(box.path)
+            p.write_text("\n".join([
+                json.dumps({"usage": {"total_tokens": 100}}),
+                json.dumps({"degraded": True, "reason": "no_api_key"}),
+            ]) + "\n", encoding="utf-8")
+            r = llm.budget_report(box.path, cfg)
+            self.assertEqual(r["verdict"], "OK", "降级不该被算成漏账")
+            self.assertEqual(r["degraded_calls"], 1)
+            self.assertEqual(r["missing_usage_lines"], 0)
+            # 反向：真发起却无 usage
+            p.write_text(json.dumps({"model": "m"}) + "\n", encoding="utf-8")
+            r2 = llm.budget_report(box.path, cfg)
+            self.assertEqual(r2["verdict"], "FAIL_CLOSED", "漏账必须 fail-closed")
+
+    def test_budget_thresholds(self):
+        llm = _load("llm_client")
+        cfg = llm.load_cfg()
+        denom = cfg["budget"]["per_wave_tokens"]
+        with TmpProject() as box:
+            p = llm.ledger_path(box.path)
+            p.write_text(json.dumps({"usage": {"total_tokens": int(denom * 0.85)}}) + "\n",
+                         encoding="utf-8")
+            self.assertEqual(llm.budget_report(box.path, cfg)["verdict"], "ALERT")
+            p.write_text(json.dumps({"usage": {"total_tokens": denom}}) + "\n", encoding="utf-8")
+            self.assertEqual(llm.budget_report(box.path, cfg)["verdict"], "ASK_HUMAN")
+
+    def test_no_key_degrades_with_ledger_trace(self):
+        """有开关但无 key → 降级 + **留痕**（不静默跳过，R-07）。"""
+        with TmpProject() as box:
+            env = {k: v for k, v in os.environ.items() if k != "DEEPSEEK_API_KEY"}
+            env["SIXLAYER_LLM"] = "on"
+            r = subprocess.run([PY, str(SCRIPTS_DIR / "llm_client.py"), "--chat", "hi",
+                                "--project", str(box.path)],
+                               capture_output=True, text=True, encoding="utf-8",
+                               errors="replace", env=env)
+            self.assertEqual(r.returncode, 1, "无 key 应降级为 1（非绿）")
+            ledger = box.path / "llm_usage.jsonl"
+            self.assertTrue(ledger.exists(), "降级必须留痕到 token 账本")
+            self.assertIn("degraded", ledger.read_text(encoding="utf-8"))
+
+
 # ══════════════ 汇总 ══════════════
 _ONLY = ""
 
@@ -592,9 +693,18 @@ def main() -> int:
     if not args.allow_net:
         _OFFLINE_GUARD["active"] = True
 
+        # ★ 不能 patch `socket.socket` —— 它是个**类**，标准库 `ssl` 在 import 时写
+        # `class SSLSocket(socket)`，一旦换成函数就会 `TypeError: function() argument
+        # 'code' must be code, not str`（实测踩到，5 个 error）。改为拦**连接入口**：
+        # `getaddrinfo`（DNS）与 `create_connection`（建连）—— 这两个是运行时查找，
+        # 阻断后任何真实网络调用都会失败，而类定义不受影响。
         def _no_net(*a, **k):
             raise RuntimeError("自测必须离线（D-16）：检测到网络调用被拦下")
-        socket.socket = _no_net          # type: ignore[assignment]
+
+        def _no_conn(*a, **k):
+            raise RuntimeError("自测必须离线（D-16）：检测到建连被拦下")
+        socket.getaddrinfo = _no_net        # type: ignore[assignment]
+        socket.create_connection = _no_conn  # type: ignore[assignment]
 
     if args.json_summary:
         print(json.dumps(_json_summary(args.exclude_delegate), ensure_ascii=False))
