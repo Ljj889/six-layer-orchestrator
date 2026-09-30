@@ -203,18 +203,48 @@ def cmd_check(root: Path, name: str) -> int:
 
 
 def cmd_append(root: Path, name: str, event: str, evidence: str) -> int:
-    """只追加一行到事件流表末尾（**绝不修改既有行**）。"""
+    """只追加一行到**事件流表末尾**（**绝不修改既有行**）。
+
+    ★ 2026-09-30 实证修 bug：原实现直接 `p.write_text(text + row)` 追加到**文件末尾**，
+    但事件流表**不是文件的最后一节**（后面还有「更新规则 / 三个物理位置 / 与既有文档的关系」）
+    → 行写到了别的表格里，事件流行数没变 → **追加静默失效**，而弱校验照样报"单调不减 ✓"。
+    这正是规则写死的「弱校验通过 ≠ 事件流完整」的活体演示。
+    修法：定位事件流节 → 在该节内找**最后一个表格数据行** → 插在它后面。
+    """
     p = board_path(root, name)
     if not p.exists():
         print(f"[state_board] 状态板不存在：{p}（先 init）", file=sys.stderr)
         return 2
     text = p.read_text(encoding="utf-8", errors="replace")
-    if not text.endswith("\n"):
-        text += "\n"
+    lines = text.splitlines()
+
+    sec = None
+    for i, ln in enumerate(lines):
+        if ln.startswith("## ") and SECTIONS["events"] in ln:
+            sec = i
+            break
+    if sec is None:
+        print(f"[state_board] 找不到事件流分区（含「{SECTIONS['events']}」的 ## 标题）", file=sys.stderr)
+        return 1
+    end = len(lines)
+    for j in range(sec + 1, len(lines)):
+        if lines[j].startswith("## "):
+            end = j
+            break
+    last_row = None
+    for k in range(sec + 1, end):
+        s = lines[k].strip()
+        if s.startswith("|") and not re.match(r"^\|[\s\-:|]+\|$", s):
+            last_row = k
+    if last_row is None:
+        print("[state_board] 事件流分区里没有可追加的表格行（先补表头）", file=sys.stderr)
+        return 1
+
     ts = datetime.now().strftime("%m-%d %H:%M")
-    row = f"| {ts} | cli | {event} | {evidence or '-'} |\n"
-    p.write_text(text + row, encoding="utf-8")     # 纯追加：原内容一个字节不动
-    print(f"[state_board] 已追加事件行：{row.strip()}")
+    row = f"| {ts} | cli | {event} | {evidence or '-'} |"
+    lines.insert(last_row + 1, row)
+    p.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"[state_board] 已追加事件行（事件流表第 {last_row + 1} 行后）：{row}")
     return 0
 
 

@@ -377,6 +377,29 @@ class TestStateBoard(unittest.TestCase):
             rc = _cli(["run", "state_board", d, "check"], isolate=False)
             self.assertEqual(rc, 1, "删行后行数倒退，弱校验必须 FAIL（否则该断言没有牙齿）")
 
+    def test_append_lands_inside_events_section_even_when_not_last(self):
+        """反向 fixture：事件流表**不是文件最后一节**时，append 仍必须落进事件流表内。
+
+        本条曾真红过：原实现按"文件末尾追加"，行写进了后面的表格，事件流行数不变
+        → **追加静默失效**，而弱校验照样报"单调不减 ✓"。
+        """
+        with TmpProject() as box:
+            d = str(box.path)
+            _cli(["run", "state_board", d, "init"], isolate=False)
+            p = box.path / "PROJECT_STATUS.md"
+            p.write_text(p.read_text(encoding="utf-8")
+                         + "\n## 九、尾部干扰节\n\n| a | b |\n|---|---|\n| 1 | 2 |\n",
+                         encoding="utf-8")
+            sb = _load("state_board")
+            before = sb.event_row_count(p.read_text(encoding="utf-8"))
+            self.assertEqual(_cli(["run", "state_board", d, "append", "关键事件", "ev"],
+                                  isolate=False), 0)
+            after = sb.event_row_count(p.read_text(encoding="utf-8"))
+            self.assertEqual(after, before + 1,
+                             "append 后事件流表行数必须 +1（否则追加静默失效）")
+            tail = p.read_text(encoding="utf-8").split("## 九、尾部干扰节")[1]
+            self.assertNotIn("关键事件", tail, "新行不得落进尾部干扰节")
+
     def test_known_red_structure_break(self):
         """反向 fixture：删掉一个分区标题 → 结构非法 → 必须 FAIL。"""
         with TmpProject() as box:

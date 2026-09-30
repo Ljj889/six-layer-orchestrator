@@ -5,3 +5,9 @@ __pycache__/
 # 平台副本的历史备份（若在此仓库内产生）
 *.bak
 archive/skill-history/
+
+# 状态板弱校验基线（append-only 运行产物）
+*.count.log
+
+# 状态板弱校验基线（append-only 运行产物）
+*.count.log
