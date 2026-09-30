@@ -1,9 +1,9 @@
 ---
 name: six-layer-orchestrator
 description: 多agent六层联合编排框架（六层主 Agent 编排框架；WorkBuddy 侧同名 skill：六层编排框架；CodeBuddy 与 WorkBuddy 通用）在 WorkBuddy 原生多 Agent 环境下
-的完整实现（v3.20.0，含
+的完整实现（v3.21.0，含
 调度器/架构师角色分离、项目级反馈回路、架构交叉验证、Red Flags 可检查信号、要不要编排出口、三种运行模式、粗拆细拆、引擎/智能分离与 LLM 局限防线、断点恢复 SOP、经验蒸馏与文档读取学习回路、AI 代码验收纪律、效果类主观验收、外部依赖探针、项目生命周期状态机、硬约束优先原则、设计锁定原则、每步方向讨论 Gate、混合审查 AI初审+用户终审、共享质量Rubric与收敛标准、并行隔离、Wave级复盘、计划评审回合制、僵尸能力红线（无调用点=僵尸+preload参数焊死变体）、过程文档先行+解耦第一+共享交互hook信号+验收Gate不豁免、对抗式双架构师设计回路（rule 74）、调研配 crawler（rule 75）、合规检查脚本 six_layer_check（rule 64 引擎化）、引擎三件套脚本 checkpoint/cost_log/lifecycle 状态机硬拦截、蒸馏资产唯一真相源=独立仓库（rule 76）、子代理能力探测与直做模式（rule 77）、引擎三件套进Wave Gate（rule 78）、渲染端静默失效检查Gate（rule 79）、取证优先与现象排查卡（rule 80）、长排错会话检查点（rule 81）、归因闭环-现象消失证据（rule 41）、副作用审查子检查点（rule 68）、产物级断言 product-assert（rule 79 第六项）、环境快照漂移五族（rule 80）、项目内参照物优先（rule 64+R-011）、脚本Gate噪音甄别与空洞PASS（rule 79）、
-取证手段分层·结构性缺失grep三问（rule 80）、接手对齐三硬步骤·活跃树判定四证据（rule 82）、验收声明三要素（rule 80）、幂等导入可见性（R-012）、真实源码复现（framework-skill real-source-repro）、发布前置链单命令（rule 64）、产物断言时序校验（rule 79）、遇错先检索三环·先查后试·试要成组（rule 64 泛化 + task_templates 环境铁律第 4 条））。当用户说
+取证手段分层·结构性缺失grep三问（rule 80）、接手对齐三硬步骤·活跃树判定四证据（rule 82）、验收声明三要素（rule 80）、幂等导入可见性（R-012）、真实源码复现（framework-skill real-source-repro）、发布前置链单命令（rule 64）、产物断言时序校验（rule 79）、遇错先检索三环·先查后试·试要成组（rule 64 泛化 + task_templates 环境铁律第 4 条）、跨窗口协作件·状态板三分区+隐性知识交接件（rule 84 · [假设·B1]）、引擎参数单一来源 engine_config（每键 schema+合法域·非法即 FAIL）、拍板语义→单测断言（rule 43 家族 · D-01）、写入/搬运类产物断言（rule 79 第三类 · D-05）、接缝可替身·通道不可 mock（rule 79 · D-04）、失败必写盘（rule 80 · D-06）、推理档位 reasoning_effort 替代 temperature（rule 56 · D-12③））。当用户说
 "用六层框架做 X"、"六层编排"、"主Agent编排"、"按六层流程开发 X"、或要求先调研开源项目再拆解并行开发时使用。流程：Phase -2 调研（Swarm+轮询+经验召回，每步先与人讨论方向）→ Phase -1 规格 → Phase -1.5 人机设计锁定（设计文档+代码骨架，计划评审回合制收敛，用户逐项确认）→ Phase 0 初始化（版本控制前置）→ Phase 0.5 知识资产初始化（防文件腐烂+经验召回 Gate）→ L0-L5（调度器只路由不自执行；架构师/程序员/审查员/验收员为 Layer1 平级子 Agent；接口契约→编排→校验→混合审查→流程控制→工程保障）→ Phase 5 合并（用户终审）→ Phase 6 用户反馈回路 → Phase 7 经验蒸馏（写，落盘独立仓库）→ read_knowledge（读）闭环，越用越聪明。
 agent_created: true
 ---
@@ -29,15 +29,13 @@ agent_created: true
 - 触发词：六层框架 / 六层编排 / 主Agent编排 / 按六层流程 / 拆模块并行开发
 
 
-## Workflow（六层流程 v3.20.0 · 全局编号 1-83，
-删除号 13/15/17/25/26/30 留空不复用，新增从 46 起；有效规则 67 条 · 含 Phase 0.5 知识资产初始化防文件腐烂 · v3.9.1=ChatCut 反馈修订 / v3.9.2=调研经验转化 / v3.9.3=经验蒸馏+文档读取闭环 / v3.9.4=番茄钟实战反馈修订 / v3.9.5=多宠语音实战反馈 / v3.9.6=项目生命周期状态机 / v3.9.7=硬约束优先+纠错先检索 / v3.9.8=设计锁定原则 / v3.9.9=过程文档先行+解耦第一+验收Gate不豁免 / v3.9.10=对抗式双架构师设计回路+调研crawler / v3.10.0=每步方向讨论 Gate / v3.11.0=混合审查+质量Rubric+并行隔离+Wave级复盘+计划评审回合制 / v3.12.0=galagame 僵尸能力红线+monorepo构建顺序+web自动化环境坑+设置入口ADR / v3.13.0=WorkBuddy+CodeBuddy 两版合并统一编号（rule 73-75 并入，G-006 框架合规指南，引擎三件套 + six_layer_check 脚本）/ v3.13.1=蒸馏资产唯一真相源=独立仓库（rule 76，家俊决策 A）/ v3.14.0=实战复盘五反馈引擎化（rule 77 子代理能力探测与直做模式 / rule 78 引擎三件套进Wave Gate / rule 79 渲染端静默失效检查Gate / rule 80 取证优先与现象排查卡 / rule 81 长排错会话检查点）/ v3.14.1=改错能力研讨会收敛（rule 41 归因闭环：现象消失证据+单变量+取证排序 / rule 64 检索序加项目内参照 / rule 68 副作用审查子检查点 / rule 79 第六项产物级断言 product-assert / rule 80 环境快照第0步+漂移五族 / R-011 项目内参照物优先 / 交付取证包模板；0 条新 rule，全部扩展现有规则 / v3.15.0=便签反馈回合2蒸馏（rule 72 僵尸新变体·preload 参数焊死 / rule 73 共享交互 hook 信号 / rule 79 脚本 Gate 噪音甄别+空洞 PASS / rule 80 取证手段分层·结构性缺失 grep 三问 / 
-G-001 v1.3 Windows 运行环境坑；0 条新 rule，全部扩展现有规则） · v3.16.0=番茄宠物V2 单日实战蒸馏（新增 rule 82 接手对齐三硬步骤：活跃树判定四证据 + 根因可信度标签 + 勿动清单推翻条件；扩展 rule 5 分级纪律延伸到交接文档与行号锚定 / rule 41 真实源码函数复现 / rule 61 审美类反馈一句话确认 / rule 64 发布前置链单命令化 / rule 66 方向卡未响应分支 / rule 77 无框架痕迹项目的最小载体 + direct 模式最低验收线（四条） / rule 78 引擎脚本运行时探针 / rule 79 第六项 产物断言时序与稳定性 / rule 80 验收三要素 + 现象→可判定断言模板 + 输入输出可见日志；新增 R-012 幂等导入可见性 · framework-skill real-source-repro · G-001 v1.4 运行时探针/无 Git Bash · G-002 v2 净机模拟+审美反馈 · R-007 v3 切换类状态同步变体）【同日引擎对齐】scripts：+runtime_probe.py · six_layer_check 增 active-tree / product-assert 时序与稳定性 / render-silent-fail 噪音治理 / [PROBE] 报告头 · sync_to_platforms(.sh/.ps1) 校验升级（版本抽检 ≥2 处 + 领先检测 + MD5 + 逐目录文件数）；references：symptom_triage v2.1（验收三要素 + 现象→可判定断言模板）/ bug_fix_mode v1.5（真实源码复现 + 检索序补项目内参照）/ task_templates（+接手对齐卡 + direct 模式最低验收线） · **v3.17.0=多agent六层联合编排框架完善研讨·三轮对撞收敛（0 新 rule，连续第五版）**：rule 47 档位判据去行数化（两维判定表）+ B1 试运行 / rule 53 cost_log 三可选列（错位 T1-T4/任务卡行数/档位误判）/ rule 40 注入三级策略 / rule 55 三模式联动档位 / rule 64 Gate 预算法四条件 + kill 议题机制二分 / rule 66 确认分级（回退成本×方向性）/ rule 78 dispatch-check + write-conflict + audit 进 Wave Gate / rule 82 触发面扩至派发（T4）；scripts：cost_log audit 子命令（实锤判定式写死）+ six_layer_check dispatch-check/write-conflict 子命令；references：model_routing B1 判定表 + knowledge_loop D1 指针规则 + task_templates 注入三级；中文名定「多agent六层联合编排框架」
+## Workflow（六层流程 v3.21.0 · 全局编号 10–84，删除号 13/15/17/25/26/30 留空不复用，1–9 为 Phase 流程步骤编号；有效规则 **69** 条 · 自报来源 `python scripts/rule_index.py`（R-13：现状数字禁手抄）· **完整版本史见 `CHANGELOG.md`**）
 
-**v3.18.0=新增 rule 83 上下文压缩规格（补 rule 40 缺的「压缩本身」，借鉴「伴学 App」契约 §11 三级级联）**：LC1 子 Agent 回报压缩 → LC2 已消费输入淘汰 → LC3 结构化摘要（六字段存 progress.json）；**分母用校准窗口、不用 API 上限**（伴学教训：分母错 → 与真实会话差 127 倍 → 压缩永不触发、summary 永远空、判据永远红灯，**调 ratio 没用**）；三条硬纪律（摘要不替代 progress.json / 指针优先带行号@commit / 不得转述子 Agent 原话）+ 压缩后复述测试 + 失败降级不阻塞；references 新增 `context_compression.md`。**同批修正**：`sync_to_platforms.sh` 的 wb 目标路径（`six-layer-orchestrator` → 实际目录名 `六层编排框架`）；**平台副本中 rule 76 残留的旧中文仓库路径**由本次 sync 覆盖修正（仓库侧本就正确）。
-
-**v3.19.0=render-silent-fail 纯 JS / 原生项目误报根因修复（0 新 rule，纯引擎缺陷修复）**：实战（图片查看器 Wave 4）跑 render-silent-fail 连续稳定误报 2 项，逐层取证后定位到**引擎自身两个缺陷**——① **注释剥离正则吃文件尾**：原写 `re.sub(r"/\*.*?\*/|^\s*//.*$", "", txt, flags=re.S | re.M)`，`re.S` 让第二支 `^\s*//.*$` 的 `.` 也匹配换行，于是**从第一条行注释一路吃到文件末尾**，其后的 `ipcMain.handle` / `ipcRenderer.invoke` 全部检索不到（**既误报"僵尸 handler"，也漏报真问题=假阴**；实证：`main/ipc.js` 第 148 行一条 `//` 之后 24 个 handler 全消失、`preload.js` 只剩前 11 条）。修法：拆成 `_strip_comments()` 两步（块注释 re.S / 行注释 re.M），两处调用点（IPC 一致性 + 打包进程探针）同步替换。② **preload d.ts 对非 TS 项目结构性不适用**：新增 `_is_ts_project()`（有 tsconfig 或有 .ts/.tsx 源即算 TS 项目），非 TS 项目降级 **SKIP** 而非 FAIL（这类项目本就没"类型门禁"，preload 契约靠"真 preload + 真 IPC"的渲染层效果验证兜底）。**附带加固**：`_check_ipc_consistency` 增包装器形态识别（`const invoke = (c) => ipcRenderer.invoke(c, ...)` 后再写 `invoke('x')` 的常见写法——只认字面量会把已调用通道误判成僵尸）+ 动态拼接通道（`` `ns:${x}` ``）标记 uncertain → 降级 SKIP 而非 FAIL。**自测 +3 用例**（4b 纯 JS→SKIP / 4c 包装器→PASS / 4d 行注释后 handler 仍在），引擎自检 25 PASS / 0 FAIL。**教训**：检查项报 FAIL 时先按 rule 79 v3.15.0"改动范围对焦 + 独立取证"验，**别急着改被测项目——可能是检查器自己在说谎**。
+**v3.21.0=规则层落地（D-01…D-07 + 引擎参数单一来源 · 开发文档 v1.0 §八 P1a/P1b）**：新增 **rule 84 跨窗口协作件**（状态板三分区 + 隐性知识交接件 · `[假设·B1]`，**不升标配**）· 新增「**引擎参数单一来源**」节（D-18：每键 schema + 合法域，**非法即 FAIL 不许静默取默认**；子命令↔rule 映射表；总开关 `SIXLAYER_ENGINE=off`）· rule 43 扩 **D-01 拍板→单测断言**（并家族 + 降级分支 + stdlib）· rule 79 扩 **D-05 写入/搬运类产物断言**（回读最终位置字节 + 降级计数器）与 **D-04 接缝可替身/通道不可 mock**（引擎自测同硬线）· rule 80 扩 **D-06 失败必写盘**（未写盘 = 视为未验证）· rule 56 ③ **温度→`reasoning_effort`**（原温度方案实测为**静默失效死代码**）· Red Flags +5 · references +4（real-source-repro / decisions / collab_artifacts / engine_config）· scripts +2（engine_config.json / rule_index.py）· 修 `checkpoint` 浅拷贝跨项目串味 + `os.replace()` 原子写 · banner 剪至 3 版（全量史入 `CHANGELOG.md`）。
 
 **v3.20.0=「先查后试」纪律泛化（家俊 2026-09-30 需求：解决报错 / 遇到任何问题时，先上网搜别人怎么解决的——网上有大量心得与踩坑帖，靠自己试错要浪费很多时间）**：rule 64「纠错先检索」触发面从"改 bug"扩为**一切卡壳**（报错 / API·平台行为诡异 D48 / 库用法不明 / 效果不对 四类）；检索三环升格为**试错前的硬步骤**（三环未跑完禁止试错；搜索规格=平台/库+API+症状·中英各搜·优先官方文档>GitHub Issues>社区·结论标来源；无果才试且试要成组，互链 D48 ③）；**三环注入每个子 Agent 任务卡**（task_templates v3.20.0 环境铁律第 4 条 + 程序员 self_check.lookup_first 检索留痕——真正在"试"的是子 Agent，只约束调度器 = 治标不治本）；bug_fix_mode v1.6（检索序强化为硬步骤 + 决策卡加第 ⓿ 步）；Red Flag「反复试错无检索留痕」；symptom_triage 同步。**同批修正**：`sync_to_platforms.ps1` 的 wb 目标路径（sh 版 v3.18.0 已修，ps1 漏改 → 本次修正，防 ps1 同步写到已不存在的旧目录）。**同批回流 v3.19.0**（上一轮引擎修复 + rule 61 D48 曾只落平台副本、未回流仓库，已随本次入库）。
+
+**v3.19.0=render-silent-fail 纯 JS / 原生项目误报根因修复（0 新 rule，纯引擎缺陷修复）**：实战（图片查看器 Wave 4）跑 render-silent-fail 连续稳定误报 2 项，逐层取证后定位到**引擎自身两个缺陷**——① **注释剥离正则吃文件尾**：`re.S` 让行注释支 `^\s*//.*$` 一路吃到文件末尾，其后的 `ipcMain.handle` / `ipcRenderer.invoke` 全部检索不到（**既误报"僵尸 handler"，也漏报真问题=假阴**）。修法：拆成 `_strip_comments()` 两部分（块注释 `re.S` / 行注释 `re.M`）。② **preload d.ts 对非 TS 项目结构性不适用**：新增 `_is_ts_project()`，非 TS 项目降级 **SKIP** 而非 FAIL。**附带加固**：`_check_ipc_consistency` 增包装器形态识别 + 动态拼接通道标记 uncertain → 降级 SKIP。**自测 +3 用例**（4b/4c/4d），引擎自检 25 PASS / 0 FAIL。**教训**：检查项报 FAIL 时先按 rule 79"改动范围对焦 + 独立取证"验，**别急着改被测项目——可能是检查器自己在说谎**。**完整原文见 `CHANGELOG.md`**。
 
 ### Phase -2：调研学习（可复用借鉴优先，家俊版核心前置）
 
@@ -236,6 +234,8 @@ G-001 v1.3 Windows 运行环境坑；0 条新 rule，全部扩展现有规则）
     - **交互路径验收（v3.9.4 新增 · 番茄钟 C4 实战）**：**验收必须覆盖"真实交互路径"（事件链/用户旅程），不只功能钩子**——dev 钩子直接调主进程、绕过鼠标事件链的验收，测不出"点击不切情绪"这类真实用户才会触发的 bug（番茄钟桌宠实战：自动化验收过但真实鼠标微抖触发拖拽死区）。验收设计时自问："这条路径是用户真实操作能走到的吗？"
     - **验收优先序反转 + False Green 认知（v3.9.4 新增 · 业界 AI 代码测试调研）**：AI 生成代码的失败画像 ≠ 人类代码——测试优先级反过来：**① 完整用户旅程 E2E（真实浏览器/真实数据）> ② 错误/空状态路径（AI 很少写 unhappy-path，提示词没点名就不写）> ③ 边界假设核对（AI 猜的字段/权限/返回类型/状态码，对照真实生产者）> ④ 现有流程回归（改了 X，所有 import X 的旧流程都要跑）> ⑤ 单测垫底**。核心认知：**绿 CI = AI 代码最会伪造的信号（False Green）**——单测断言的是"结构"不是"行为"，AI 改接口/改语义后旧测试照过但行为已错（promo-code-as-string 案例：集成边界类型错，下游静默强转，无测试断言最终金额）。验收用**意图型测试**（按用户意图断言："点提交 → 验确认消息"，不绑 DOM 选择器/内部实现——重构不坏）；等状态转移不等 sleep；跨边界断言业务结果不只 DOM。
 
+    - **拍板语义 → 单测断言（v3.21.0 新增 · D-01 · 并入本条家族，不新开 rule）**：当用户/监理给出**产品语义拍板** → 易犯"实现成相邻但相反的语义且无测试兜住" → 护栏：**落地时当场写清"这条怎么测"，并把它变成一条单测断言**（单测 + 抽查双防线，替代中途人工汇报）。**降级分支（无自动化手段时）**：改走 rule 61（效果类主观验收）+ **人工步骤卡**（动作 → 预期 → 失败回传什么），不得因此跳过断言。**测试载体用 stdlib**（`unittest` + `subTest`；`pytest` 仅 dev-only，**禁止作为前置依赖**）。证据：伴学 P0 B-3"同秒双拍 → 自动补号 `_r{n}`"被实现成"报错拒绝"，S2 验收判据未覆盖 → 本可活到用户真用那天。
+
 ### Phase 5：合并交付
 
 44. 全部 PASS + 用户确认后合并产物，写最终交付（含运行说明），输出成本汇总与完成报告。交付前对照 spec.md 逐字核对（若走了 SDD），报告里明确标注每条能力"已实测 / 仅设计 / 未验证（原因）"，并按第 42 条格式列出**未验证项清单**。**发布即下一轮循环的起点——进入 Phase 6，不结束。**
@@ -243,7 +243,7 @@ G-001 v1.3 Windows 运行环境坑；0 条新 rule，全部扩展现有规则）
 
 56. **引擎/智能分离 + 引擎层硬拦截（v3.9 新增 · M_SKILL-5 #6）**：
     - **两层唯一接口（架构分层）**：引擎层 → 智能层 `{ "prompt": "...", "role": "architect", "temperature": 0.0 }`；智能层 → 引擎层 `{ "content": "...", "usage": { "prompt_tokens": N, "completion_tokens": M } }`。**引擎层禁止包含任何 LLM 调用逻辑以外的"智能判断"**——判断归调度器/子 Agent，执行归引擎。当前 WorkBuddy 版引擎层暂由提示词驱动，迁移时替换为 Python 硬代码。
-    - **硬拦截三件套（LLM 静默降级 / 能力遗漏 / 温度敏感防线）**：① **解析失败绝不静默回退**——JSON schema 解析失败/连败即停，写 `PHASE_X_FAILED` 报告，禁止偷偷换低质量路径（如静默退回兜底模式）；② **import 后立即检查核心函数是否存在**——引擎层加载模块后马上核对关键导出，防"兜底完整但主路径没写"（能力遗漏）；③ **不同阶段用不同温度**——框架段/拆解段 `temperature=0.0`（稳定），反思段/反思回灌 `temperature=0.3`（产真洞察），禁止全程一刀切。
+    - **硬拦截三件套（LLM 静默降级 / 能力遗漏 / 温度敏感防线）**：① **解析失败绝不静默回退**——JSON schema 解析失败/连败即停，写 `PHASE_X_FAILED` 报告，禁止偷偷换低质量路径（如静默退回兜底模式）；② **import 后立即检查核心函数是否存在**——引擎层加载模块后马上核对关键导出，防"兜底完整但主路径没写"（能力遗漏）；③ **不同阶段用不同推理档位（v3.21.0 修订 · D-12③）**——~~原"不同阶段用不同温度"~~：**实测否决**——`temperature` 在 thinking mode 下官方原文「Has no effect in thinking mode」，且 thinking **默认 enabled** → 原方案是**静默失效的死代码**。改为 `reasoning_effort`（`none/low/high/max`）：框架段/拆解段低档（稳定），反思段/反思回灌高档（产真洞察），禁止全程一刀切。**三条可探测判据（缺一即视为未生效）**：① **能力协商**（`/models` 返回 `effort.supported_levels`）② **机器可读生效证据**（`reasoning_tokens` 两端对比）③ **兼容映射显式登记**（官方 `minimal→low` 这类静默语义变更**不得靠猜**）。
     - **心跳报告刷新上下文（LLM 上下文污染防线）**：长轮询/长任务子 Agent **每轮重读约束文件 + 输出心跳**（"Agent N 等待中，已等待 X 分钟"）刷新上下文，防止跑 30 轮后忘记自己的角色和约束。
 
 ### 断点恢复 SOP（v3.9.1 新增 · ChatCut 花字开发 2 次断点重接实战沉淀）
@@ -399,6 +399,9 @@ Bug-Fix 轻量模式（rule 46）与"要不要编排"出口（单 Agent 直做�
 
       - **产物断言的时序与稳定性（v3.16.0 新增）**：产物断言必须 ①等**打包进程退出** ②**尺寸两次采样相等** ③加**时序断言**（zip mtime > asar mtime，证明归档装的是最终产物）——实测在打包**进行中**采样会拿到中间态（asar 274→287MB / zip 256→268MB），据此下结论 = 假证据。**已引擎化**：`product-assert` 内置三条断言（打包进程探针 / 两次采样 / zip>asar），不成立即 FAIL；"抽到 0 个期望类"的空洞 PASS 自动识别为 WARN（rule 79 v3.15.0），且 WARN **不再计入"通过"**。
 
+      - **写入/搬运类产物断言（v3.21.0 新增 · D-05 · 产物断言第三类）**：前两类是"产物**内容**断言"（Tier A/B），第三类管**搬运 / 写入 / 落位**——**按最终位置的字节数 + 位置逐项回读**（`hashlib` + `st_size` + 读回比对），**只信返回值、只看大小不看最终位置 = 静默假绿**。**拿不到字节 → 记一笔"跳过"，不许当"验过"**；配**降级计数器**：连续 N 次跳过 → FAIL，但判"逃逸 vs 环境缺失"前**先跑能力探针**（本机永久缺失项按 D-09 显式标 `[不可测·环境缺失]`，不占计数器）。证据：伴学 P0 真机 `java.nio.Files.copy(Path,Path)` 经 `plus.android` **不报错但产出 0 字节**；同族"暂存路径少个斜杠 → 文件名叫错而大小校验照样通过"（**静默假绿 ×2**）。
+      - **接缝可替身 / 通道不可 mock（v3.21.0 新增 · D-04 · 主载体见 `references/real-source-repro.md`）**：只替身"**我们定义的接缝**"（io/注入点），**通道级 API 一律真机验证**；替身必须附"**它是接缝不是通道**"的**书面理由**。**补一条硬线**：**引擎自测同样不得 mock 平台通道**——直接封死"用 mock 冒充自测"（D-16 的离线自测只允许**录制重放**，录制重放测的是逻辑，不是伪造通道）。
+
 80. **取证优先与现象排查卡（v3.14.0 新增 · 硬伤3：真机才能暴露的问题取证不标准，多轮往返）**：用户报**现象类问题**（UI 不显示/样式丢失/交互无响应/"看起来不对"）时——**第一动作是取证，不是改代码**。实战教训："看不到"问题第一轮靠猜、第二轮才加日志、第三轮才做对照实验，用户的"先看日志报错，确定究竟什么问题再解决"就是纠正。固化：
     - **取证优先（硬规则）**：现象类问题禁止未取证就改代码。第一动作三件：① **加最小诊断日志**（在嫌疑链路上输出关键状态）② **向用户要标准数据**（该现象的标准数据集是固定的，如窗口问题=visible/pos/size/z-order/render-mounted 五项，见排查卡）③ **设计对照实验**（一次只改一个变量，如隐藏其他窗口排除 z-order 干扰）；
     - **取证手段分层（v3.15.0 · 便签反馈回合2）**：取证前先判**结构性缺失 vs 运行时失效**——结构性缺失（控件/事件链/通道两端不存在）用 grep 即可定根因，**零运行时取证**，三问 = 控件在渲染层 DOM 里有吗？事件链接到主进程了吗？通道两端（渲染端 invoke ↔ preload 签名 ↔ main handler）都在吗？（实测：目标窗"关不掉"= 关闭按钮根本不存在、"拖不动"= 事件链缺失 + preload 不传 key，静态 grep 三分钟全定位）；只有"都在但行为不对"才升级到日志/环境快照/对照实验（取证成本从廉到贵，与 rule 41 取证排序同构）；
@@ -410,6 +413,8 @@ Bug-Fix 轻量模式（rule 46）与"要不要编排"出口（单 Agent 直做�
 
     - **验收声明三要素（v3.16.0 扩展）**：任何一方说"我跑通了"都不构成证据——必须同时声明**档案状态**（新档/旧档）、**代码来源**（源码/构建产物/包内 asar）、**启动方式**（dev/packaged）；三者任一不同 → 不算同一验证（实测：用户"自己电脑解压跑了没问题"用的是**已有档案**、完全没走首启注入路径；改用 `--user-data-dir=<tmp>` 干净档案 + 打包 exe 才验到真路径）。
     - **现象 → 可判定断言模板（v3.16.0 扩展）**：把口语现象转成断言时必须写两个字段——**预期日志行**（可 grep）与**反证信号**（出现 X 也说明防护生效；实测 `[vp] 流结束丢弃未完成标签残渣` 即有效反证）；每条关键链路必须有"**输入输出可见**"的一行日志（文本/参数/引擎/档案），它是最便宜的取证包。
+
+    - **失败必写盘（v3.21.0 新增 · D-06）**：当失败诊断依赖**界面上的日志** → 易犯"人（和 AI）都取不到那段日志" → 护栏：**失败路径一律写盘**（固定目录 + 明确文件名 + 可 adb/文件管理器取走），界面日志只作辅助。**判定式**：失败路径**未写盘 = 该修复视为未验证**（rule 42）；**写盘路径必须脚本可定位**（固定目录 + 可 grep 的文件名模式）并**纳入 Gate 扫描面**（交付时脚本能枚举到这些失败日志）。证据：伴学 P0 失败原因在"页内日志面板"（面板在视口外 → 两轮真机都取不到证），改"失败一律写盘到固定目录"后一次抓到根因。
 
 81. **长排错会话检查点（v3.14.0 新增 · 次要问题2：排错会话远超 2000 行，早期结论只能靠 lessons 兜底）**：排错（bug-hunting）会话的上下文膨胀速度远超普通开发——每个假设-验证循环都会产生大量中间输出，rule 40 的 2,000 行目标会被三轮排错击穿，且"压缩前落盘"钩子没和排错流程绑定，压缩即丢早期结论。补上排错专用检查点：
     - **假设证伪即落盘**：排错是"假设 → 验证 → 证伪/证实"循环——**每证伪一个假设，立即在 lessons.md（或 scratchpad）追加一行**：`[排错检查点] 已排除: <假设+证据> | 当前最大嫌疑: <X> | 下一步: <动作>`——把"早期结论只能靠记忆"变成"结论固化在磁盘"（复用 Pre-Compaction Flush，rule 40）；
@@ -425,6 +430,62 @@ Bug-Fix 轻量模式（rule 46）与"要不要编排"出口（单 Agent 直做�
     - **② 根因可信度标签**：文档里每条根因必须被标 `[已复现]` 或 `[已推断]`；`[已推断]` 的根因，接手方**必须先复现一次**（真实源码函数 + 真实数据，见 knowledge/framework-skills/real-source-repro）才允许落码——直接继承结论 = 一轮修复打偏（实战：文档断言"bidi 已完整解析、勿动"，真凶恰在该文件；照结论做的修复对症状无效）。
     - **③ 勿动清单带推翻条件**：文档里的"勿动/禁区"每条必须写清推翻条件（例："有真机日志 + 最小复现链证明缺陷在本文件 → 允许改，须在交付说明记录破例理由与影响面"）；没有推翻条件的勿动项视为**建议**而非红线。
     - **与 rule 12/19 的关系**：本条不改变调度器/架构师职责，只规定"接手那一刻"的三步对齐动作；对齐产出（判定结论 + 假设清单 + 未验证项）应落进 rule 77 的最小载体。
+84. **跨窗口协作件（状态板三分区 + 隐性知识交接件）· [假设 · B1 单项目试运行]（v3.21.0 新增 · D-02/D-03/D-07 · 来源伴学 P0 实战，样本数 = 1）**：**同一项目有 ≥2 个并行窗口（或会话会换窗）**时，跨窗口信息散在"开发侧 `progress.json` + 监理侧文档 + 各自对话历史（**私有**）"，而**用户自己的跨窗口动作没有落盘** → 用户被迫当"**人肉消息总线**"，一次搬漏就出问题。两条协作件（**均为可选模板，不升框架级标配**；模板见 `references/collab_artifacts.md`）：
+    - **① 状态板 `PROJECT_STATUS.md`（三分区）**：① 当前状态（30 秒版）② 待开发执行指令区 `CMD-NN`（**只追加 + 就地标状态，不改原文**）③ 事件流（**只追加**）。**跨窗口动作必须落盘**——只在对话里说 = 不存在；用户发指令 = 「**看状态板待办区**」。**弱校验（D-02 (iii)）**：只判**结构合法 + 事件流区行数单调不减**（基线用**只读来源**：`git diff --numstat` 或独立 append-only 日志；**禁写回 `progress.json`**）；**已删除"自动生成事件流"**——且规则写死「**弱校验通过 ≠ 事件流完整**」（不保证"用户动作都被记入"，漏记一律不报，也不校验内容真伪）。
+    - **② 隐性知识交接件（六项固定）**：① 关键决策与理由（我的判断 vs 契约硬要求）② 下一步的成形思路**含未决项** ③ 代码私规（命名/错误码/测试组织/编号体系从几号起）④ 踩过与预判的坑 ⑤ 未验证项 ⑥ **新窗最易犯的错**（**第 ⑥ 项为强烈建议，非硬性**）。**禁止复述状态板/契约已有的内容**（防重复源）；换窗流程 = 判断 → 建议 → 产交接件 → **状态板事件流标注一行** → **由人开新窗**（AI 开不了窗口）。**AI 产出、人只确认**。
+    - **触发条件（不常驻）**：① 并行窗口 ≥2 ② 上下文将满（rule 40/81 触发）③ 换人 / 换窗——任一命中才产出；**不主动部署到用户项目根**（默认标"未启用"）。
+    - **Dxx 决策编号制（D-07）**：项目内决策号一律 `D<n>`，**另立 `decisions.md` 作推荐做法**（模板见 `references/decisions.md`），**不进 `cost_log`**（它是定长可 grep 行，插词破契约）；决策号须可 `grep -E 'D[0-9]+'` 命中。ADR 两条纪律：**编号只增** / **取代不改写**。
+    - **B1 试运行**：先在一个项目试运行；`[假设]` → `[事实]` 需**第二个项目证据**（rule 47 B1）。**若第二项目复现失败 → 模板与规则要重写**（R-04）；若频率数据证明主战场不走本框架，本节按 §七 参数 1 回退线挂起。
+    - **与 rule 73（过程文档先行）/ rule 77（最小载体）的关系**：本条是"**跨窗口**"专用载体，rule 77 是"**无框架痕迹项目**"的最小载体，rule 73 是"**单窗口内**"的过程文档——三者互补不重叠。
+
+## 引擎参数单一来源（engine_config · v3.21.0 新增 · D-18）
+
+> **为什么**：温度 / 档位 / 预算 / 超时 / 模型白名单 / 校准窗口散落在代码各处 → 改一处漏一处，且**参数漂移无 Traceback**（R-14：把 `reasoning_effort` 写成 `minimal`、预算写成 `0`、温度写成 `5.0`，代码照样执行——**比代码 bug 更隐蔽**）。
+
+**单点定义**：以上六类参数**只在 `references/engine_config.md` 定义一次**（机读镜像 `scripts/engine_config.json`），他处一律引用（canonical source 指针），禁止硬编码第二份。
+
+**每键 schema + 合法域，非法即 FAIL（不许静默取默认）**：
+
+| 键 | 类型 | 合法域 | 非法处置 |
+|---|---|---|---|
+| `llm.model_whitelist` | array[string] | 现行白名单 `["deepseek-flash","deepseek-v4-pro"]`（`deepseek-chat`/`reasoner` 2026-07-24 已停用） | FAIL（提交前**双向核对**，防 200 假绿） |
+| `llm.reasoning_effort` | enum | `none` / `low` / `high` / `max` | FAIL（兼容映射如官方 `minimal→low` **须显式登记为已知等价类**） |
+| `llm.temperature` | number | `0.0`–`2.0`（**thinking mode 下无效，仅登记备案**，不得作档位手段） | FAIL |
+| `budget.window_tokens` | integer > 0 | **校准窗口**值（**禁用 API 上限做分母**——rule 83 先例：分母错 127 倍 → 永不触发） | FAIL |
+| `budget.per_wave_tokens` | integer > 0 | 正整数 | FAIL |
+| `timeout.dispatch_sec` | integer > 0 | 正整数 | FAIL |
+| `calibration.window_days` | integer > 0 | 正整数 | FAIL |
+
+> **schema 校验实现**：优先**手写约 20 行**（零依赖）；确需库时唯一可选 `fastjsonschema`（纯 Python、闭包 1）；**禁 `pydantic` / `jsonschema`**（Rust 二进制，与"零依赖可移植"冲突）。
+
+**子命令 ↔ rule 号映射表（防代码漂移无人察觉 · R-08）**：
+
+| 子命令 / 脚本 | rule 号 |
+|---|---|
+| `six_layer_check`（init/deliver/auto） | rule 64 |
+| `six_layer_check render-silent-fail` | rule 79 |
+| `six_layer_check product-assert` | rule 79 第六项 + D-05 第三类 |
+| `six_layer_check active-tree` | rule 82 |
+| `six_layer_check self-test` | rule 79 家族 / D-16 |
+| `six_layer_check state-board` | rule 84（D-02 弱校验） |
+| `runtime_probe` | rule 78（D-09 bash 三态） |
+| `checkpoint` | rule 39 |
+| `cost_log` | rule 38 / 53 |
+| `lifecycle` | rule 63 |
+| `read_knowledge` | rule 59 |
+| `rule_index.py` | R-13（现状数字自报） |
+| `validate_output` | L3 输出校验 |
+| `cli.py route-error` | rule 33（D-14） |
+| `cli.py compress` | rule 83（LC1/LC2/LC3） |
+| `cli.py design` | rule 65 |
+| `cli.py status` | rule 84（D-22 事件写入） |
+| `cli.py llm` | rule 56（D-11 / D-12 / D-13） |
+| `cli.py run`（通用包裹） | rule 64（引擎化） |
+
+**启动打印**：任何 `cli.py` 子命令启动时打印**生效参数 + 来源**（如 `[engine_config] reasoning_effort=high source=references/engine_config.md`），并在总开关关闭时打印 `[engine] bypass (SIXLAYER_ENGINE=off)`。
+
+**引擎总开关（R-01 回滚路径）**：`SIXLAYER_ENGINE=off` → `cli.py` **全部子命令旁路**，回落提示词驱动（一行 env，零成本）。**D-09 运行时寻址（R-06）**：运行时**寻址 = 当前平台副本所在目录**；启动时打印版本号并与仓库版本核对，不一致 → 警告 + 记 `cost_log` 异常类型列。
+
 ## Red Flags 可检查信号（v3.7 新增观测器）
 
 以下信号可被外部审计，出现即异常；调度器与审查员据此判分（收纳原第 13 条 symptom）：
@@ -459,6 +520,12 @@ Bug-Fix 轻量模式（rule 46）与"要不要编排"出口（单 Agent 直做�
 - **继承 `[已推断]` 根因就落码（v3.16.0 新增 · rule 82/41）**：把交接文档里的推断结论当已验证事实直接修复，未做真实源码复现 → FAIL。
 - **验收声明缺三要素（v3.16.0 新增 · rule 80）**："跑通了"未声明档案状态/代码来源/启动方式 → 该验收视为未验证（rule 42）。
 - **反复试错无检索留痕（v3.20.0 新增 · rule 64 泛化）**：同一问题试错 ≥2 轮（改代码 → 重跑/真机复现/重打包）仍无检索留痕——三环（项目内 grep / 经验库 / WebSearch）任一环的途径与来源都没进 lessons.md / 交付说明 / 子 Agent 回报 → 违反"先查后试"，该修复视为未验证，FAIL（对照 D48 反面教材：连试两轮才想起查证，一查即知正确解法）。
+- **弱校验通过当"事件流完整"（v3.21.0 新增 · rule 84 / D-02）**：状态板弱校验（结构合法 + 行数单调不减）绿，就宣称"跨窗口动作都记了" → 违反"弱校验通过 ≠ 事件流完整"，FAIL（弱校验**不保证**用户动作被记入）。
+- **用 mock 冒充引擎自测（v3.21.0 新增 · rule 79 / D-04）**：引擎自测里 mock 平台通道（socket/设备 API/二进制）→ 直接 FAIL；离线自测只允许**录制重放**真实响应 fixture（"录制重放不是 mock"）。
+- **失败路径未写盘（v3.21.0 新增 · rule 80 / D-06）**：失败诊断只落界面日志、无法脚本定位 → 该修复视为**未验证**，FAIL。
+- **引擎参数非法却静默取默认（v3.21.0 新增 · D-18 / R-14）**：`engine_config` 每键带 schema + 合法域，越域**必须 FAIL**；静默取默认 = FAIL（参数漂移无 Traceback，比代码 bug 更隐蔽）。
+- **写入/搬运只看返回值不看最终位置（v3.21.0 新增 · rule 79 第三类 / D-05）**：产物断言只验返回值或只比大小、不按**最终位置逐项回读字节** → 视为未验证（静默假绿家族）。
+
 ## Resources
 
 ### references/task_templates.md
@@ -500,6 +567,18 @@ Bug-Fix 轻量模式（v3.9.2 新增）：报错修复专用流程——先三�
 ### references/adversarial_design.md
 对抗式双架构师设计回路 playbook（v3.9.10 新增 · rule 74）：双架构师 + 挑刺 Agent 的角色定义、Round 1/2 回合协议、proposal_A/B / review / critique / consensus 四套模板、共识门槛与 ≤3 轮熔断升级人流程，非平凡设计阶段默认启用。
 
+### references/real-source-repro.md
+真实源码复现 + **接缝替身模板**（v3.21.0 新增 · D-04 主载体）：本件是"**接缝可替身 / 通道不可 mock**"的**主载体**（rule 79 家族只留一句引用）——含接缝替身模板（"它是接缝不是通道"的**书面理由**必填字段）+ 真实源码函数复现手法（转译真实源文件片段提取私有函数、喂真实日志/DB 数据）。配套 `knowledge/framework-skills/real-source-repro`（手法详述）。引擎自测同一硬线：**不得 mock 平台通道**。
+
+### references/decisions.md
+项目内决策编号制（v3.21.0 新增 · D-07 推荐做法）：`D<n>` 编号 + 两条 ADR 纪律（**编号只增** / **取代不改写**）+ 决策卡模板（编号 / 日期 / 背景 / 选项 / 选择与理由 / 取代关系 / 影响面）。**独立文件，不进 `cost_log`**（cost_log 是定长可 grep 行，插词破契约）；决策号须可 `grep -E 'D[0-9]+'` 命中。rule 84 的展开模板。
+
+### references/collab_artifacts.md
+跨窗口协作件可选模板（v3.21.0 新增 · D-02/D-03）：① **状态板 `PROJECT_STATUS.md` 三分区模板**（当前状态 30 秒版 / `CMD-NN` 指令区只追加 / 事件流只追加）+ 弱校验口径（结构合法 + 事件流区行数单调不减，**基线用只读来源，禁写回 progress.json**；**弱校验通过 ≠ 事件流完整**）② **隐性知识交接件六项模板**（第 ⑥ 项为强烈建议）。**均为可选模板，不升框架级标配**，标 `[假设]`，按 rule 47 B1 单项目试运行（rule 84 的展开模板）。
+
+### references/engine_config.md
+引擎参数单一来源（v3.21.0 新增 · D-18）：温度 / 推理档位 / 预算 / 超时 / 模型白名单 / 校准窗口**单点定义**（机读镜像 `scripts/engine_config.json`）+ **每键 schema + 合法域（非法即 FAIL，不许静默取默认）** + **子命令 ↔ rule 号映射表** + 启动打印"生效参数 + 来源" + 总开关 `SIXLAYER_ENGINE=off` 回滚口径。SQL 与明细见 SKILL.md「引擎参数单一来源」节（本件为唯一 canonical source）。
+
 ### knowledge/（经验资产库）
 框架级共享经验库（v3.9.3 新增，跨项目）：四桶 `rules/`（红线，注入 constitution）· `decisions/`（ADR，注入 plan）· `framework-skills/`（可调用 Skill）· `guides/`（可选说明）+ `_index.md`（canonical 索引，read_knowledge 唯一入口）。入口检索原语见 `scripts/read_knowledge.py`。
 当前：rules R-001~R-012（2026-09 新增 R-007 僵尸能力 / R-008 类型门禁假绿 / R-009 可移除性 / R-010 构建配置静默失效 / R-011 项目内参照物优先 / R-012 幂等导入可见性，均属
@@ -521,5 +600,8 @@ L3 输出校验脚本：`python scripts/validate_output.py <output.json> <schema
 ### scripts/checkpoint.py · scripts/cost_log.py · scripts/lifecycle.py
 引擎三件套（v3.9.13 新增 · rule 38/39/63 引擎化）：`checkpoint.py` 断点三态（已交付/已验证/未验证）+ 派发前预期产物清单 + 磁盘核验（stat）；`cost_log.py` 成本账本定长行 `[时间]|[对象]|[档位]|[成本]|[结果]|[异常类型]` + 汇总/合规检查；`lifecycle.py` 项目五态状态机（INIT→EXECUTING→DELIVERED→REOPENED/ACCEPTED），非法转移拒绝 + Gate 证据门（DELIVERED 需未验证项清单、ACCEPTED 需用户确认记录）。三件套共用 `progress.json`（lifecycle 字段）。**新项目统一用新格式；旧项目（编排系统 MVP 的 cost_report.json 等）归档不迁移（2026-09-01 决策 A）。引擎先随 skill 版本演进，验证稳定后抽独立仓库（家俊 2026-09-01 决策）。**
 
-### 引擎化落地现状（v3.16.0 更新 · 实测清单）
-SKILL.md 描述的引擎能力 vs scripts/ 实际落地（2026-09-12 实测）：✅ `validate_output.py`（L3 校验）· ✅ `read_knowledge.py`（经验召回）· ✅ `six_layer_check.py`（合规检查，v3.9.12；v3.14.0 增 `render-silent-fail`；v3.14.1 增 `product-assert`；**v3.16.0 增 `active-tree` + 时序与稳定性 + 噪音治理 + `[PROBE]` 报告头**）· ✅ `runtime_probe.py`（运行时探针，rule 78 v3.16.0；PATH→受管目录回退 + `--require` Gate 前置）· ✅ `checkpoint.py`（断点三态+预期产物清单，rule 39，v3.9.13）· ✅ `cost_log.py`（成本定长行账本，rule 38/53，v3.9.13）· ✅ `lifecycle.py`（五态状态机+Gate 证据门，rule 63，v3.9.13）· ✅ `sync_to_platforms.sh / .ps1`（三平台分发 + 一致性校验 v1.1：版本标记抽检 ≥2 处 + 目标领先检测 + SKILL.md MD5 + 逐目录文件数）· ❌ `cli.py design --finalize`（设计锁定 Gate）· ❌ `route_error()`（错误路由器）。**硬约束层已覆盖核心数据/状态类；剩余引擎化项按 rule 64 优先级逐步补齐，判断类（架构评审/审查）永不脚本化。**
+### scripts/rule_index.py · scripts/engine_config.json
+索引与参数自报（v3.21.0 新增 · R-13 / D-18）：`python scripts/rule_index.py [SKILL.md 路径] [--json]` 自报**有效规则条数 / 最大编号 / 删除留空号 / 版本标记分布 / 「子命令 ↔ rule 号」映射表交叉核对**——**一切"现状数字"禁止手抄**（R-13：同一件事曾出现 24/25/30/27 四个数字），凡进版本 banner 或验收口的数字必须由本脚本产出。`scripts/engine_config.json` 是 `references/engine_config.md` 的**机读镜像**（两者不一致 = FAIL）。
+
+### 引擎化落地现状（v3.21.0 更新 · 实测清单）
+SKILL.md 描述的引擎能力 vs scripts/ 实际落地（2026-09-12 实测）：✅ `validate_output.py`（L3 校验）· ✅ `read_knowledge.py`（经验召回）· ✅ `six_layer_check.py`（合规检查，v3.9.12；v3.14.0 增 `render-silent-fail`；v3.14.1 增 `product-assert`；**v3.16.0 增 `active-tree` + 时序与稳定性 + 噪音治理 + `[PROBE]` 报告头**）· ✅ `runtime_probe.py`（运行时探针，rule 78 v3.16.0；PATH→受管目录回退 + `--require` Gate 前置）· ✅ `checkpoint.py`（断点三态+预期产物清单，rule 39，v3.9.13）· ✅ `cost_log.py`（成本定长行账本，rule 38/53，v3.9.13）· ✅ `lifecycle.py`（五态状态机+Gate 证据门，rule 63，v3.9.13）· ✅ `sync_to_platforms.sh / .ps1`（三平台分发 + 一致性校验 v1.3：**frontmatter + banner 双定点版本锚点** + 目标领先检测 + **根级文件 MD5（SKILL.md + CHANGELOG.md）** + 逐目录文件数）· ✅ `rule_index.py`（规则数/版本标记/映射表自报，v3.21.0）· ❌ `cli.py design --finalize`（设计锁定 Gate）· ❌ `route_error()`（错误路由器，v3.21.0 起由 `cli.py route-error` 承接，见 L1b）。**硬约束层已覆盖核心数据/状态类；剩余引擎化项按 rule 64 优先级逐步补齐，判断类（架构评审/审查）永不脚本化。**

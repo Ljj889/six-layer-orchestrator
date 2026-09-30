@@ -1,0 +1,36 @@
+{
+  "_note": "engine_config 机读镜像 —— canonical source = references/engine_config.md；两者不一致 = FAIL",
+  "_version": "v1.0",
+  "_updated": "2026-09-30",
+  "llm": {
+    "model_whitelist": ["deepseek-flash", "deepseek-v4-pro"],
+    "reasoning_effort": "high",
+    "reasoning_effort_allowed": ["none", "low", "high", "max"],
+    "reasoning_effort_compat_map": {
+      "minimal": "low",
+      "medium": "high",
+      "max": "max"
+    },
+    "temperature": 0.0,
+    "request_timeout_sec": 120,
+    "max_retries": 2
+  },
+  "budget": {
+    "window_tokens": null,
+    "window_tokens_note": "null = 未校准；禁用 API 上限做分母（rule 83），校准后写入校准窗口值",
+    "per_wave_tokens": 200000,
+    "alert_ratio": 0.8,
+    "ask_human_ratio": 1.0
+  },
+  "timeout": {
+    "dispatch_sec": 1800
+  },
+  "calibration": {
+    "window_days": 30
+  },
+  "engine": {
+    "enabled": true,
+    "env_override": "SIXLAYER_ENGINE",
+    "bypass_value": "off"
+  }
+}
