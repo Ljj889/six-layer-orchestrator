@@ -435,7 +435,11 @@ Bug-Fix 轻量模式（rule 46）与"要不要编排"出口（单 Agent 直做�
     - **② 隐性知识交接件（六项固定）**：① 关键决策与理由（我的判断 vs 契约硬要求）② 下一步的成形思路**含未决项** ③ 代码私规（命名/错误码/测试组织/编号体系从几号起）④ 踩过与预判的坑 ⑤ 未验证项 ⑥ **新窗最易犯的错**（**第 ⑥ 项为强烈建议，非硬性**）。**禁止复述状态板/契约已有的内容**（防重复源）；换窗流程 = 判断 → 建议 → 产交接件 → **状态板事件流标注一行** → **由人开新窗**（AI 开不了窗口）。**AI 产出、人只确认**。
     - **触发条件（不常驻）**：① 并行窗口 ≥2 ② 上下文将满（rule 40/81 触发）③ 换人 / 换窗——任一命中才产出；**不主动部署到用户项目根**（默认标"未启用"）。
     - **Dxx 决策编号制（D-07）**：项目内决策号一律 `D<n>`，**另立 `decisions.md` 作推荐做法**（模板见 `references/decisions.md`），**不进 `cost_log`**（它是定长可 grep 行，插词破契约）；决策号须可 `grep -E 'D[0-9]+'` 命中。ADR 两条纪律：**编号只增** / **取代不改写**。
-    - **B1 试运行**：先在一个项目试运行；`[假设]` → `[事实]` 需**第二个项目证据**（rule 47 B1）。**若第二项目复现失败 → 模板与规则要重写**（R-04）；若频率数据证明主战场不走本框架，本节按 §七 参数 1 回退线挂起。
+    - **B1 试运行（v3.21.0 · 状态已升级）**：`[假设]` → `[事实]` 需**第二个项目证据**（rule 47 B1）。
+      **2026-09-30 家俊拍板：回退线已触发** —— 真实存在 **1–2 个**「≥2 窗口并行 / 会换窗」的项目（证据最硬：`伴学 P0` 已有状态板 + 总授权卡 + 换账号换窗口操作单）
+      → 模板**从"未启用"转为"启用"**，弱校验转"启用"；**默认仍不主动部署到用户项目根**，改为一键启用
+      （`python scripts/state_board.py "<项目根>" init|check|append`）。**P3 母板仍不开**（1–2 个不足以支撑；≥3 个才重开）。
+      **若第二项目复现失败 → 模板与规则要重写**（R-04）。
     - **与 rule 73（过程文档先行）/ rule 77（最小载体）的关系**：本条是"**跨窗口**"专用载体，rule 77 是"**无框架痕迹项目**"的最小载体，rule 73 是"**单窗口内**"的过程文档——三者互补不重叠。
 
 ## 引擎参数单一来源（engine_config · v3.21.0 新增 · D-18）
@@ -614,7 +618,7 @@ L1a 离线硬层（v3.21.0 新增 · D-15/D-17/D-19/D-02/D-05）：
 L1b 挂轻门层（v3.21.0 新增 · D-14 / rule 83 / rule 65）：
 - **`route_error.py`**（错误路由 · rule 33）：纯规则函数，**不调 LLM**；关键词表**外置** `route_error_table.json`（带 `version`）→ **改规则只改表，不发版**。验收口：合约条款过严→`scheduler` / type hint 缺失→`programmer_N` / 无法判断→`human`；合约级优先于代码级（T1）。**回归评测口径**：`--eval <corpus.jsonl>`（首行必须 `{"_meta":true,"kind":"synthetic"|"real"}`，**缺 kind 即 FAIL**）；**合成语料跑绿一律 exit 3 = PENDING**（只证明 harness 可用，**不构成"回归评测通过"**）；`regression_eval` 状态由**代码常量**决定而非输出文本。自带 `route_error_corpus_synthetic.jsonl`（10 条合成样本）。**不做**：FAIL 真伪甄别（R-05 已剥离，裁为"下一版第一项"）。`--status` 打印表版本与 pending 项。
 - **`compress.py`**（上下文压缩 LC1/LC2 · rule 83）：**机械层，硬断言 `llm_calls=0`**。LC1 只抽「结论+证据指针」丢弃叙述正文；LC2 已消费输入→替换为指针（标记≠删除）；**复述测试**（`phase/ruled_out/open_items/next` 四项）不通过即 exit 1 回退重压；指针缺 `@commit` 标 `pointer_weak`。LC3（花 LLM）属 L2。
-- **`design_gate.py`**（设计锁定 Gate · rule 65）：**挂 pending** —— 硬门「schema 未定稿 → 本件挂 pending」，**返回 exit 3（PENDING）而非伪造实现**。交付"它不保证什么"：即使将来能跑，`design 命令能跑 ≠ 设计锁定完整`（rule 65 含"边讨论边上网调研佐证"，命令覆盖不到）。
+- **`design_gate.py`**（设计锁定 Gate · rule 65）：**已 WITHDRAWN**（家俊 2026-09-30 裁决「**当前不需要这个 Gate**」）—— 从 pending 列表移除、**不再挂着**；退出码仍为 **3 = 未执行**（**撤回 ≠ 变绿**）。恢复路径：`references/design_gate_schema_draft.md` 的**四项解除条件**（确认清单项 / 谁有权确认 / 未确认项处置 / 证据载体）。**为什么当初不自拟 schema**：`engine_config` 的 schema 有外部判据（写错会被 API 当场拒绝）；`design_gate` 的 schema **没有** —— 漏写一项不会有任何信号，会安静地给未完成设计的项目**发绿**。交付"它不保证什么"：即使将来恢复，`design 命令能跑 ≠ 设计锁定完整`。
 
 > **退出码 3 的统一语义**：`未执行 / 未交付`（总开关旁路、`design_gate` 挂 pending），语义判定为 **PENDING**，**绝不落进 PASS**。
 
@@ -628,9 +632,10 @@ L1b 挂轻门层（v3.21.0 新增 · D-14 / rule 83 / rule 65）：
 - **离线回归**：`--replay _probe/l0_2_stream_raw.sse` —— **录制重放不是 mock**（D-04）。
 
 ### references/design_gate_schema_draft.md
-设计锁定 Gate 的 **schema 草案**（v1.0-draft · **未生效 · 不构成实现** · v3.21.0 新增）：
-`design_gate` 保持 pending 的**解除条件件** —— 四项（确认清单项 / 谁有权确认 / 未确认项处置 / 证据载体）全到位才升 `v1.0` 并实现。
-**为什么不自拟**：`engine_config` 的 schema 有外部判据（写错会被 API 当场拒绝）；`design_gate` 的 schema **没有** —— 漏写一项不会有任何信号，会安静地给未完成设计的项目**发绿**。附触发条件表（含"家俊明确不需要 → 标 withdrawn，不再挂着"）。
+设计锁定 Gate 的 schema 草案（**已 WITHDRAWN · 未生效 · 不构成实现** · v3.21.0）：
+家俊 2026-09-30 裁决「当前不需要这个 Gate」→ 本件**从 pending 移除**，但**保留下案**（不删）。
+内容 = 恢复路径：四项解除条件（确认清单项 / 谁有权确认 / 未确认项处置 / 证据载体）全到位才升 `v1.0` 并实现。
+**为什么不自拟**：`engine_config` 的 schema 有外部判据（写错会被 API 当场拒绝）；`design_gate` 的 schema **没有** —— 漏写一项不会有任何信号，会安静地给未完成设计的项目**发绿**。附触发条件表。
 
 ### 引擎化落地现状（v3.21.0 更新 · 实测清单）
-SKILL.md 描述的引擎能力 vs scripts/ 实际落地（2026-09-12 实测）：✅ `validate_output.py`（L3 校验）· ✅ `read_knowledge.py`（经验召回）· ✅ `six_layer_check.py`（合规检查，v3.9.12；v3.14.0 增 `render-silent-fail`；v3.14.1 增 `product-assert`；**v3.16.0 增 `active-tree` + 时序与稳定性 + 噪音治理 + `[PROBE]` 报告头**）· ✅ `runtime_probe.py`（运行时探针，rule 78 v3.16.0；PATH→受管目录回退 + `--require` Gate 前置）· ✅ `checkpoint.py`（断点三态+预期产物清单，rule 39，v3.9.13）· ✅ `cost_log.py`（成本定长行账本，rule 38/53，v3.9.13）· ✅ `lifecycle.py`（五态状态机+Gate 证据门，rule 63，v3.9.13）· ✅ `sync_to_platforms.sh / .ps1`（三平台分发 + 一致性校验 v1.3：**frontmatter + banner 双定点版本锚点** + 目标领先检测 + **根级文件 MD5（SKILL.md + CHANGELOG.md）** + 逐目录文件数）· ✅ `rule_index.py`（规则数/版本标记/映射表自报，v3.21.0）· ✅ `cli.py`（引擎总入口：in-process + `--isolate` + 语义契约层 + 参数校验 + 版本寻址 + 总开关，v3.21.0）· ✅ `engine_selftest.py`（自测总入口：三必测断言 + 禁裸 assert + `-O` 一致性 + 离线，v3.21.0）· ✅ `state_board.py`（状态板弱校验 + 事件追加，rule 84，v3.21.0）· ✅ `write_assert.py`（产物断言第三类·写入落位，rule 79 家族，v3.21.0）· ✅ `route_error.py`（错误路由，rule 33，v3.21.0 · 表外置）· ✅ `compress.py`（LC1/LC2 机械层 + 复述测试，rule 83，v3.21.0）· ⏸ `design_gate.py`（设计锁定 Gate，rule 65）—— **挂 pending：schema 未定稿**，返回 exit 3 而非伪造实现 · ✅ `llm_client.py`（LLM 调用层：四步防线 + 手写 SSE + 自建连接层 + 预算 fail-closed + LC3，rule 56/D-11/D-12③/D-13，v3.21.0 · **默认关闭**）。**硬约束层已覆盖核心数据/状态类；剩余引擎化项按 rule 64 优先级逐步补齐，判断类（架构评审/审查）永不脚本化。**
+SKILL.md 描述的引擎能力 vs scripts/ 实际落地（2026-09-12 实测）：✅ `validate_output.py`（L3 校验）· ✅ `read_knowledge.py`（经验召回）· ✅ `six_layer_check.py`（合规检查，v3.9.12；v3.14.0 增 `render-silent-fail`；v3.14.1 增 `product-assert`；**v3.16.0 增 `active-tree` + 时序与稳定性 + 噪音治理 + `[PROBE]` 报告头**）· ✅ `runtime_probe.py`（运行时探针，rule 78 v3.16.0；PATH→受管目录回退 + `--require` Gate 前置）· ✅ `checkpoint.py`（断点三态+预期产物清单，rule 39，v3.9.13）· ✅ `cost_log.py`（成本定长行账本，rule 38/53，v3.9.13）· ✅ `lifecycle.py`（五态状态机+Gate 证据门，rule 63，v3.9.13）· ✅ `sync_to_platforms.sh / .ps1`（三平台分发 + 一致性校验 v1.3：**frontmatter + banner 双定点版本锚点** + 目标领先检测 + **根级文件 MD5（SKILL.md + CHANGELOG.md）** + 逐目录文件数）· ✅ `rule_index.py`（规则数/版本标记/映射表自报，v3.21.0）· ✅ `cli.py`（引擎总入口：in-process + `--isolate` + 语义契约层 + 参数校验 + 版本寻址 + 总开关，v3.21.0）· ✅ `engine_selftest.py`（自测总入口：三必测断言 + 禁裸 assert + `-O` 一致性 + 离线，v3.21.0）· ✅ `state_board.py`（状态板弱校验 + 事件追加，rule 84，v3.21.0）· ✅ `write_assert.py`（产物断言第三类·写入落位，rule 79 家族，v3.21.0）· ✅ `route_error.py`（错误路由，rule 33，v3.21.0 · 表外置）· ✅ `compress.py`（LC1/LC2 机械层 + 复述测试，rule 83，v3.21.0）· ⏸→**已撤回** `design_gate.py`（设计锁定 Gate，rule 65 —— **家俊 2026-09-30 裁决：当前不需要**；仍 rc=3 = 未执行，**撤回 ≠ 变绿**） · ✅ `llm_client.py`（LLM 调用层：四步防线 + 手写 SSE + 自建连接层 + 预算 fail-closed + LC3，rule 56/D-11/D-12③/D-13，v3.21.0 · **默认关闭**）。**硬约束层已覆盖核心数据/状态类；剩余引擎化项按 rule 64 优先级逐步补齐，判断类（架构评审/审查）永不脚本化。**

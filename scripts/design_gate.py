@@ -1,38 +1,43 @@
 #!/usr/bin/env python3
-"""design_gate.py — 设计锁定 Gate（rule 65 · L1b）※ **本件挂 pending**
+"""design_gate.py — 设计锁定 Gate（rule 65 · L1b）※ **本件已 WITHDRAWN（家俊 2026-09-30 裁决）**
 
-★ 硬门（开发文档 §4.2 L1b）：**schema 未定稿 → 本件挂 pending**。
+★ 状态：**已撤回（withdrawn）** —— 家俊 2026-09-30 裁决「**当前不需要这个 Gate**」。
+  处置依据：收尾研讨共识 Q1 + `references/design_gate_schema_draft.md` §四 触发条件表最后一行
+  →「家俊明确'不需要这个 Gate' → 本件标 withdrawn，**从 pending 列表移除（不再挂着）**」。
 
-设计锁定 Gate（`cli.py design --finalize`）需要一个**已定稿的确认清单 schema**才能机械判定
-"设计是否真的锁定"（逐项确认了哪些、谁确认的、确认时间、未确认项怎么处置）。
+★ 为什么当初是 pending（保留在案，不是错误意见）：
+  `engine_config` 的 schema 也是开发方自拟的，但它**有外部判据**——写错会在下一次真实调用时被
+  API 当场拒绝；而 `design_gate` 的 schema **没有外部判据**——漏写一项（如"数据迁移策略已确认"），
+  **没有任何信号会告诉我们错了**，它会安静地给一个没做完设计的项目**发绿**。
+  → schema 的内容只能由人定（rule 65：设计锁定 = 人机共同确认）。
 
-当前状态：**该 schema 未定稿** → 本件**不实现**，显式返回 pending（**不伪造能力**）。
+★ 恢复路径（若将来需要）：`references/design_gate_schema_draft.md` 的四项解除条件
+  （确认清单项 / 谁有权确认 / 未确认项处置 / 证据载体）全到位 → 升 v1.0 → 实现 `check` 与 `--finalize`。
 
-★ 它不保证什么（必须随件交付）：
-   即使将来 `design` 命令能跑，**也 ≠ "设计锁定完整"** ——
-   rule 65 的流程含"边讨论边上网调研佐证"，命令行覆盖不到那一层。
+★ 它不保证什么（即使将来恢复也成立）：
+  **「design 命令能跑」≠「设计锁定完整」** —— rule 65 的流程含"边讨论边上网调研佐证"，
+  命令行覆盖不到那一层。
 
 用法：
-    python scripts/design_gate.py [--status]
+    python scripts/design_gate.py
 
-退出码：3 = pending（**未实现**，刻意与"通过=0"区分）
+退出码：3 = 未执行（**withdrawn**，刻意与"通过=0"区分，防被 Gate 当成绿）
 """
 from __future__ import annotations
 
 import sys
 
-PENDING_RC = 3
+WITHDRAWN_RC = 3
 
 REASON = (
-    "[design_gate] PENDING —— 设计锁定 Gate 未实现：\n"
-    "  硬门（开发文档 §4.2 L1b）：schema 未定稿 → 本件挂 pending。\n"
-    "  已交付的解除条件件：references/design_gate_schema_draft.md（**草案，未生效**）。\n"
-    "  解除 pending 需家俊给四项：① 确认清单项列表 ② 谁有权确认 ③ 未确认项处置 ④ 证据载体。\n"
-    "  ★ 为什么开发方不自拟 schema：engine_config 的 schema 有外部判据（写错会被 API 当场拒绝），\n"
-    "    design_gate 的 schema **没有** —— 漏写一项不会有任何信号，它会安静地给未完成设计的项目发绿。\n"
-    "  ★ 不保证什么：即使将来能跑，『design 命令能跑』≠『设计锁定完整』\n"
+    "[design_gate] WITHDRAWN —— 本件已撤回（家俊 2026-09-30 裁决：当前不需要这个 Gate）。\n"
+    "  处置依据：收尾研讨共识 Q1 + references/design_gate_schema_draft.md §四 触发条件表。\n"
+    "  → 已从 pending 列表移除（不再挂着）；将来若需要，按草案件的**四项解除条件**恢复。\n"
+    "  ★ 为什么当初不实现：engine_config 的 schema 有外部判据（写错会被 API 当场拒绝），\n"
+    "    design_gate 的 schema **没有** —— 漏写一项不会有任何信号，会安静地给未完成设计的项目发绿。\n"
+    "  ★ 它不保证什么（即使将来恢复也成立）：『design 命令能跑』≠『设计锁定完整』\n"
     "    （rule 65 流程含『边讨论边上网调研佐证』，命令行覆盖不到）。\n"
-    "  退出码 3 = pending，刻意与『通过=0』区分，防被 Gate 当成绿。"
+    "  退出码 3 = 未执行，刻意与『通过=0』区分，防被 Gate 当成绿。"
 )
 
 
@@ -43,7 +48,7 @@ def main() -> int:
         except Exception:
             pass
     print(REASON)
-    return PENDING_RC
+    return WITHDRAWN_RC
 
 
 if __name__ == "__main__":

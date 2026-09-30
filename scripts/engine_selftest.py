@@ -579,11 +579,13 @@ class TestL1bTools(unittest.TestCase):
         res = cp.compress(self._bundle(next=None))
         self.assertFalse(res["restate_test"]["ok"], "缺 next 时复述测试必须 FAIL")
 
-    # ── design_gate（挂 pending 硬门）──
-    def test_design_gate_is_pending_not_green(self):
+    # ── design_gate（withdrawn，永不落进 PASS）──
+    def test_design_gate_is_withdrawn_not_green(self):
+        """design_gate 已 withdrawn（家俊 2026-09-30 裁决），但仍必须 rc=3 且语义 PENDING
+        —— **撤回 ≠ 变绿**：它仍然"未执行"，绝不能被 Gate 当成通过。"""
         rc, out = _cli_out(["run", "design_gate"], isolate=False)
-        self.assertEqual(rc, 3, "design_gate 必须返回 pending 码 3（schema 未定稿）")
-        self.assertIn("PENDING", out)
+        self.assertEqual(rc, 3, "design_gate 必须返回 3（未执行）")
+        self.assertIn("WITHDRAWN", out)
         self.assertIn("semantic=PENDING", out, "退出码 3 必须映射为 PENDING 而不是 PASS")
         self.assertIn("不保证什么", out, "必须随件交付『它不保证什么』")
 
