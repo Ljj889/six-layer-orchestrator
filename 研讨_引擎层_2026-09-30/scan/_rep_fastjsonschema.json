@@ -1,0 +1,89 @@
+{
+  "version": "1",
+  "pip_version": "26.0",
+  "install": [
+    {
+      "download_info": {
+        "url": "https://files.pythonhosted.org/packages/49/82/2755c7c982086f00d4dab85bc120ec35045a9fc2191893a6ce79afe94443/fastjsonschema-2.22.2-py3-none-any.whl",
+        "archive_info": {
+          "hash": "sha256=0fb3915616adac85ccfdd737d26be1089845d2019819505b42d39888458f74d4",
+          "hashes": {
+            "sha256": "0fb3915616adac85ccfdd737d26be1089845d2019819505b42d39888458f74d4"
+          }
+        }
+      },
+      "is_direct": false,
+      "is_yanked": false,
+      "requested": true,
+      "metadata": {
+        "metadata_version": "2.4",
+        "name": "fastjsonschema",
+        "version": "2.22.2",
+        "dynamic": [
+          "author",
+          "author-email",
+          "classifier",
+          "description",
+          "home-page",
+          "license",
+          "license-file",
+          "provides-extra",
+          "requires-python",
+          "summary"
+        ],
+        "summary": "Fastest Python implementation of JSON schema",
+        "description": "===========================\nFast JSON schema for Python\n===========================\n\n|PyPI| |Pythons|\n\n.. |PyPI| image:: https://img.shields.io/pypi/v/fastjsonschema.svg\n   :alt: PyPI version\n   :target: https://pypi.python.org/pypi/fastjsonschema\n\n.. |Pythons| image:: https://img.shields.io/pypi/pyversions/fastjsonschema.svg\n   :alt: Supported Python versions\n   :target: https://pypi.python.org/pypi/fastjsonschema\n\nSee `documentation <https://horejsek.github.io/python-fastjsonschema/>`_.\n",
+        "home_page": "https://github.com/horejsek/python-fastjsonschema",
+        "author": "Michal Horejsek",
+        "author_email": "fastjsonschema@horejsek.com",
+        "license": "BSD-3-Clause",
+        "license_file": [
+          "LICENSE",
+          "AUTHORS"
+        ],
+        "classifier": [
+          "Programming Language :: Python",
+          "Programming Language :: Python :: 3",
+          "Programming Language :: Python :: 3.10",
+          "Programming Language :: Python :: 3.11",
+          "Programming Language :: Python :: 3.12",
+          "Programming Language :: Python :: 3.13",
+          "Programming Language :: Python :: 3.14",
+          "Programming Language :: Python :: Implementation :: CPython",
+          "License :: OSI Approved :: BSD License",
+          "Operating System :: OS Independent",
+          "Development Status :: 5 - Production/Stable",
+          "Intended Audience :: Developers",
+          "Topic :: Software Development :: Libraries :: Python Modules"
+        ],
+        "requires_dist": [
+          "colorama; extra == \"devel\"",
+          "jsonschema; extra == \"devel\"",
+          "json-spec; extra == \"devel\"",
+          "pylint; extra == \"devel\"",
+          "pytest; extra == \"devel\"",
+          "pytest-benchmark; extra == \"devel\"",
+          "pytest-cache; extra == \"devel\"",
+          "validictory; extra == \"devel\""
+        ],
+        "requires_python": ">=3.10",
+        "provides_extra": [
+          "devel"
+        ]
+      }
+    }
+  ],
+  "environment": {
+    "implementation_name": "cpython",
+    "implementation_version": "3.14.3",
+    "os_name": "nt",
+    "platform_machine": "AMD64",
+    "platform_release": "11",
+    "platform_system": "Windows",
+    "platform_version": "10.0.26200",
+    "python_full_version": "3.14.3",
+    "platform_python_implementation": "CPython",
+    "python_version": "3.14",
+    "sys_platform": "win32"
+  }
+}
