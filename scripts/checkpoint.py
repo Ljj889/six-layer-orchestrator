@@ -12,6 +12,7 @@
 
 退出码：0=成功 / 1=参数或校验失败 / 2=目录不存在
 """
+import copy
 import json
 import os
 import sys
@@ -26,18 +27,30 @@ DEFAULT_STATE = {
 
 
 def load_state(root: Path) -> dict:
+    """读 progress.json。★ 必须深拷贝（v3.21.0 修）：
+    原实现 `return dict(DEFAULT_STATE)` 是**浅拷贝**——外层 dict 是新的，但内层
+    `modules` / `expected_products` 仍是 DEFAULT_STATE 里**同一个可变对象**；
+    同进程连续处理两个项目时，A 项目写入的模块会"串"到 B 项目的初始状态里。
+    同理 `data.setdefault(k, v)` 也会把 DEFAULT_STATE 的内层对象直接挂进 data。
+    """
     path = root / "progress.json"
     if path.exists():
         data = json.loads(path.read_text(encoding="utf-8"))
         for k, v in DEFAULT_STATE.items():
-            data.setdefault(k, v)
+            if k not in data:
+                data[k] = copy.deepcopy(v)
         return data
-    return dict(DEFAULT_STATE)
+    return copy.deepcopy(DEFAULT_STATE)
 
 
 def save_state(root: Path, data: dict):
+    """★ 原子写（v3.21.0 修）：原 `write_text` 直写目标文件，
+    `load→改→全量 save` 在多窗口并发下会互相覆盖（丢更新）；
+    且进程被中断会留下半截 JSON。改用 同目录临时文件 + os.replace 原子替换。"""
     path = root / "progress.json"
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def cmd_status(root: Path):

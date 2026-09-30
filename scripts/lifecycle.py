@@ -27,6 +27,7 @@
 退出码：0=成功 / 1=非法转移或证据缺失 / 2=目录不存在
 """
 import json
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -64,9 +65,14 @@ def load_state(root: Path) -> dict:
 
 
 def save_state(root: Path, data: dict):
+    """★ 原子写（v3.21.0 修）：原 `write_text` 直写目标文件，`load→改→全量 save`
+    在多窗口并发下互相覆盖（丢更新），中断还会留半截 JSON。
+    改用 同目录临时文件 + os.replace 原子替换。"""
     p = state_path(root)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp = p.with_name(p.name + ".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(tmp, p)
 
 
 def audit(data: dict, event: str):

@@ -1403,18 +1403,43 @@ def run_self_test(keep_tmp: bool = False) -> dict:
     else:
         add("sync_to_platforms.ps1 语法解析", True, "本机无 powershell", skip=True)
     sh = scripts_dir.parent / "sync_to_platforms.sh"
-    if sh.exists() and shutil.which("bash"):
-        probe = _run_proc(["bash", "-c", "echo BASH_OK"])
-        if "BASH_OK" in (probe.stdout or ""):
-            rr = _run_proc(["bash", "-n", str(sh)])
-            add("sync_to_platforms.sh 语法检查（bash -n）", rr.returncode == 0,
-                (rr.stderr or "")[:64] or "ok")
-        else:
-            add("sync_to_platforms.sh 语法检查（bash -n）", True,
-                "bash 不可用（WSL 无发行版 / 无 Git Bash）→ 记未验证", skip=True)
+    # v3.21.0 返修（D-16「用例 7」）：原来只跑 `bash -n`（**语法级**）就报 PASS，
+    # 会把"语法通过但语义错"当通过 —— 即规则里的"形式通过"。改为：
+    #   三态区分（D-09）+ 覆盖度显式化：
+    #     bash missing → SKIP[不可测·环境缺失]（记未验证，不记 PASS）
+    #     bash blocked → **FAIL**（R-12：存在却跳过 = 永久逃逸口）
+    #     有 shellcheck → 跑语义级检查
+    #     无 shellcheck → 语法级 PASS + 另立一条 SKIP 显式标"语义未验证"
+    bash_exe = shutil.which("bash")
+    bash_state = "missing"
+    if bash_exe:
+        # ★ 必须用 shutil.which 解析出的**绝对路径**（2026-09-30 实测取证）：
+        # Windows 上裸 `bash` 会被解析到 `C:\Program Files\WSL\wsl.exe` 的 App Execution Alias
+        # （rc=1 + 乱码输出，且本机被沙箱 Program Blacklist 直接拦）；而 shutil.which("bash")
+        # 返回的是 PortableGit 的真 bash（rc=0）。裸名 vs 绝对路径 = 两种结果。
+        pr = _run_proc([bash_exe, "-c", "echo BASH_OK"])
+        bash_state = "ok" if "BASH_OK" in (pr.stdout or "") else "blocked"
+    if not sh.exists():
+        add("sync_to_platforms.sh 语法检查", True, "脚本不存在", skip=True)
+    elif bash_state == "missing":
+        add("sync_to_platforms.sh 语法检查", True,
+            "[不可测·环境缺失] 本机不存在 bash → 记未验证（D-09：不存在 ≠ 跳过 ≠ PASS）", skip=True)
+    elif bash_state == "blocked":
+        add("sync_to_platforms.sh 语法检查", False,
+            "bash 存在但跑不起来（WSL 无发行版/沙箱拦）→ R-12 判 FAIL，不许静默跳过")
     else:
-        add("sync_to_platforms.sh 语法检查（bash -n）", True,
-            "本机无 bash → 记未验证", skip=True)
+        sc = shutil.which("shellcheck")
+        if sc:
+            rr = _run_proc([sc, str(sh)])
+            add("sync_to_platforms.sh ShellCheck（语义级）", rr.returncode == 0,
+                (rr.stdout or rr.stderr or "")[:120] or "ok")
+        else:
+            rr = _run_proc([bash_exe, "-n", str(sh)])
+            add("sync_to_platforms.sh 语法检查（bash -n · 仅语法级）", rr.returncode == 0,
+                ((rr.stderr or "")[:64] or "ok") + " · 覆盖度=语法；语义未验证")
+            add("sync_to_platforms.sh ShellCheck（语义级）", True,
+                "[不可测·工具缺失] 本机无 shellcheck → 语义级未验证（记未验证，不记 PASS）",
+                skip=True)
 
     pass_count = sum(1 for it in items if it["status"] == "PASS")
     fail_count = sum(1 for it in items if it["status"] == "FAIL")
@@ -1506,7 +1531,7 @@ def main():
     argv = sys.argv[1:]
     verb = None
     if argv and argv[0] in ("render-silent-fail", "product-assert", "active-tree", "self-test",
-                            "dispatch-check", "write-conflict"):
+                            "dispatch-check", "write-conflict", "write-assert"):
         verb = argv[0]
         argv = argv[1:]
     force_reason = None
@@ -1549,6 +1574,13 @@ def main():
         if strict and any(r.get("ok") and (r["evidence"] < 4 or not r["userdata_ok"]) for r in results):
             sys.exit(1)
         sys.exit(0)
+
+    if verb == "write-assert":
+        # rule 79 产物断言**第三类**（D-05：写入/搬运落位）—— 逻辑隔离在 write_assert.py，
+        # 本处只做分派，保持"同一入口"（扩既有命令，而不是另起山头）。
+        import write_assert
+        sys.exit(write_assert.main_with_argv(Path(args[0]) if args else Path("."),
+                                             sorted(flags), strict=strict))
 
     if verb == "dispatch-check":
         if not args:

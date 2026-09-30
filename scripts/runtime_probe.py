@@ -13,15 +13,24 @@
     python runtime_probe.py --require node,python
 
 输出（可 grep）:
-    [PROBE] python=3.13.12 path=C:\\...\\python.exe source=self
+    [PROBE] python=3.14.3 path=C:\\...\\python.exe source=self
     [PROBE] node=22.22.2-3 path=C:\\...\\node.exe source=fallback
     [PROBE] py_launcher=broken
+    [PROBE] bash=ok|missing|blocked path=... version=...   # v3.21.0 三态（D-09/R-12）
+    实测本机（2026-09-30）：**bash=ok**（`~/.workbuddy/binaries/PortableGit/.../bash.EXE` 在 PATH 上）
+    —— 研讨期"本机 bash 被永久拦"的判断已被实测推翻，`.sh` 检查本机可正常跑。
     [PROBE] status=ok          # 或 status=degraded missing=node
 
 探针策略（从廉到贵，绝对路径回退）:
     1. PATH 直接调用（shutil.which + 版本命令）
     2. 常见受管目录扫描（~/.workbuddy/binaries/node/versions/*/node.exe、nvm、Program Files\\nodejs）
     3. 全失败 → status=degraded + 打印可粘贴的降级命令（G-001 口径）
+
+★ bash 三态（v3.21.0 · D-09 / R-12）——**blocked ≠ missing**，两者处置完全不同：
+    ok      = 可用，`.sh` 检查正常跑
+    missing = 本机**根本没有** bash → 显式标 `[不可测·环境缺失]`，记未验证（不记 PASS）
+    blocked = **存在但跑不起来**（WSL 启动器无发行版 / 沙箱拦 / 占位可执行）→ **FAIL 级异常**，
+              因为"看起来有 bash 却静默跳过"是永久逃逸口（R-12）
 
 退出码: 0=所需项全可用 / 1=有必需项不可用
 """
@@ -30,6 +39,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -104,8 +114,41 @@ def _probe_py_launcher() -> dict:
     return {"ok": False, "version": None, "path": exe, "source": "broken"}
 
 
+def _probe_bash() -> dict:
+    """bash 三态探针（v3.21.0 新增 · D-09 / R-12）。
+
+    必须区分三态，因为它们**处置完全不同**：
+      ok      —— 可用，`.sh` 检查正常跑
+      missing —— 本机**根本没有** bash → 显式标 `[不可测·环境缺失]`（永久态，不掩盖、也不算 PASS）
+      blocked —— **存在但跑不起来**（WSL 启动器无发行版 / 沙箱拦 / PATH 上有占位）→ 记 FAIL 级异常，
+                 因为"看起来有 bash 却静默跳过"正是 R-12 要治的**永久逃逸口**。
+
+    实测本机：`shutil.which('bash')` 能找到 Windows 的 WSL 启动器（`system32\\bash.exe`），
+    但 `bash -c "echo BASH_OK"` 无输出 → **blocked**，不是 missing。
+    """
+    exe = shutil.which("bash")
+    if not exe:
+        return {"ok": False, "state": "missing", "path": None, "version": None,
+                "source": "missing"}
+    out, rc = _run([exe, "-c", "echo BASH_OK"], timeout=15)
+    full = ""
+    try:
+        r = subprocess.run([exe, "-c", "echo BASH_OK"], capture_output=True, text=True,
+                           timeout=15, encoding="utf-8", errors="replace")
+        full = (r.stdout or "") + (r.stderr or "")
+    except Exception:
+        full = ""
+    if rc == 0 and "BASH_OK" in full:
+        ver, _ = _run([exe, "--version"])
+        m = re.search(r"(\d+\.\d+(?:\.\d+)?)", ver or "")   # "GNU bash, version 5.2.26(1)" → 5.2.26
+        return {"ok": True, "state": "ok", "path": exe,
+                "version": m.group(1) if m else None, "source": "path"}
+    return {"ok": False, "state": "blocked", "path": exe, "version": None, "source": "blocked"}
+
+
 def probe() -> dict:
-    p = {"python": _probe_python(), "node": _probe_node(), "py_launcher": _probe_py_launcher()}
+    p = {"python": _probe_python(), "node": _probe_node(),
+         "py_launcher": _probe_py_launcher(), "bash": _probe_bash()}
     p["status"] = "ok" if p["node"]["ok"] else "degraded"
     return p
 
@@ -121,6 +164,14 @@ def render(p: dict) -> str:
     pl = p["py_launcher"]
     if pl["source"] in ("broken", "missing"):
         lines.append(f"[PROBE] py_launcher={pl['source']}")
+    b = p["bash"]
+    lines.append(f"[PROBE] bash={b['state']} path={b['path'] or '-'} version={b['version'] or '-'}")
+    if b["state"] == "missing":
+        lines.append("→ bash=missing：本机**不存在** bash → `.sh` 检查显式标 `[不可测·环境缺失]`"
+                     "（D-09：不存在≠跳过，记未验证，不记 PASS）")
+    elif b["state"] == "blocked":
+        lines.append("→ bash=blocked：bash **存在但跑不起来**（WSL 无发行版 / 沙箱拦 / 占位可执行）"
+                     "→ 按 R-12 记 **FAIL 级异常**，不许静默跳过（'存在却跳过'= 永久逃逸口）")
     lines.append(f"[PROBE] status={p['status']}" + ("" if n["ok"] else " missing=node"))
     if not n["ok"]:
         lines.append("→ 降级（rule 78）：本机 node 不可用——该脚本 Gate 改为手写等价记录 + 标注未验证，"
