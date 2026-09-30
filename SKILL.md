@@ -612,7 +612,7 @@ L1a 离线硬层（v3.21.0 新增 · D-15/D-17/D-19/D-02/D-05）：
 
 ### scripts/route_error.py · scripts/compress.py · scripts/design_gate.py
 L1b 挂轻门层（v3.21.0 新增 · D-14 / rule 83 / rule 65）：
-- **`route_error.py`**（错误路由 · rule 33）：纯规则函数，**不调 LLM**；关键词表**外置** `route_error_table.json`（带 `version`）→ **改规则只改表，不发版**。验收口：合约条款过严→`scheduler` / type hint 缺失→`programmer_N` / 无法判断→`human`；合约级优先于代码级（T1）。**不做**： FAIL 真伪甄别（R-05 已剥离）· 回归评测（**挂 pending**，伴学样本=1）。`--status` 打印表版本与 pending 项。
+- **`route_error.py`**（错误路由 · rule 33）：纯规则函数，**不调 LLM**；关键词表**外置** `route_error_table.json`（带 `version`）→ **改规则只改表，不发版**。验收口：合约条款过严→`scheduler` / type hint 缺失→`programmer_N` / 无法判断→`human`；合约级优先于代码级（T1）。**回归评测口径**：`--eval <corpus.jsonl>`（首行必须 `{"_meta":true,"kind":"synthetic"|"real"}`，**缺 kind 即 FAIL**）；**合成语料跑绿一律 exit 3 = PENDING**（只证明 harness 可用，**不构成"回归评测通过"**）；`regression_eval` 状态由**代码常量**决定而非输出文本。自带 `route_error_corpus_synthetic.jsonl`（10 条合成样本）。**不做**：FAIL 真伪甄别（R-05 已剥离，裁为"下一版第一项"）。`--status` 打印表版本与 pending 项。
 - **`compress.py`**（上下文压缩 LC1/LC2 · rule 83）：**机械层，硬断言 `llm_calls=0`**。LC1 只抽「结论+证据指针」丢弃叙述正文；LC2 已消费输入→替换为指针（标记≠删除）；**复述测试**（`phase/ruled_out/open_items/next` 四项）不通过即 exit 1 回退重压；指针缺 `@commit` 标 `pointer_weak`。LC3（花 LLM）属 L2。
 - **`design_gate.py`**（设计锁定 Gate · rule 65）：**挂 pending** —— 硬门「schema 未定稿 → 本件挂 pending」，**返回 exit 3（PENDING）而非伪造实现**。交付"它不保证什么"：即使将来能跑，`design 命令能跑 ≠ 设计锁定完整`（rule 65 含"边讨论边上网调研佐证"，命令覆盖不到）。
 
@@ -626,6 +626,11 @@ L1b 挂轻门层（v3.21.0 新增 · D-14 / rule 83 / rule 65）：
 - **D-13 只做 (b) 告警 + (c) 超限问人，不做真熔断**：数据源 = provider `usage`；**分母 = `budget.per_wave_tokens`**（**不用 `context_window`**，rule 83 先例）；**漏账 → fail-closed**（显式降级不算漏账）；**适用域 = 仅引擎自身发起的调用**（R-15）。
 - **LC3 结构化摘要**（六字段）：失败**降级不阻塞主流程**，记 `cost_log` 异常类型列。
 - **离线回归**：`--replay _probe/l0_2_stream_raw.sse` —— **录制重放不是 mock**（D-04）。
+
+### references/design_gate_schema_draft.md
+设计锁定 Gate 的 **schema 草案**（v1.0-draft · **未生效 · 不构成实现** · v3.21.0 新增）：
+`design_gate` 保持 pending 的**解除条件件** —— 四项（确认清单项 / 谁有权确认 / 未确认项处置 / 证据载体）全到位才升 `v1.0` 并实现。
+**为什么不自拟**：`engine_config` 的 schema 有外部判据（写错会被 API 当场拒绝）；`design_gate` 的 schema **没有** —— 漏写一项不会有任何信号，会安静地给未完成设计的项目**发绿**。附触发条件表（含"家俊明确不需要 → 标 withdrawn，不再挂着"）。
 
 ### 引擎化落地现状（v3.21.0 更新 · 实测清单）
 SKILL.md 描述的引擎能力 vs scripts/ 实际落地（2026-09-12 实测）：✅ `validate_output.py`（L3 校验）· ✅ `read_knowledge.py`（经验召回）· ✅ `six_layer_check.py`（合规检查，v3.9.12；v3.14.0 增 `render-silent-fail`；v3.14.1 增 `product-assert`；**v3.16.0 增 `active-tree` + 时序与稳定性 + 噪音治理 + `[PROBE]` 报告头**）· ✅ `runtime_probe.py`（运行时探针，rule 78 v3.16.0；PATH→受管目录回退 + `--require` Gate 前置）· ✅ `checkpoint.py`（断点三态+预期产物清单，rule 39，v3.9.13）· ✅ `cost_log.py`（成本定长行账本，rule 38/53，v3.9.13）· ✅ `lifecycle.py`（五态状态机+Gate 证据门，rule 63，v3.9.13）· ✅ `sync_to_platforms.sh / .ps1`（三平台分发 + 一致性校验 v1.3：**frontmatter + banner 双定点版本锚点** + 目标领先检测 + **根级文件 MD5（SKILL.md + CHANGELOG.md）** + 逐目录文件数）· ✅ `rule_index.py`（规则数/版本标记/映射表自报，v3.21.0）· ✅ `cli.py`（引擎总入口：in-process + `--isolate` + 语义契约层 + 参数校验 + 版本寻址 + 总开关，v3.21.0）· ✅ `engine_selftest.py`（自测总入口：三必测断言 + 禁裸 assert + `-O` 一致性 + 离线，v3.21.0）· ✅ `state_board.py`（状态板弱校验 + 事件追加，rule 84，v3.21.0）· ✅ `write_assert.py`（产物断言第三类·写入落位，rule 79 家族，v3.21.0）· ✅ `route_error.py`（错误路由，rule 33，v3.21.0 · 表外置）· ✅ `compress.py`（LC1/LC2 机械层 + 复述测试，rule 83，v3.21.0）· ⏸ `design_gate.py`（设计锁定 Gate，rule 65）—— **挂 pending：schema 未定稿**，返回 exit 3 而非伪造实现 · ✅ `llm_client.py`（LLM 调用层：四步防线 + 手写 SSE + 自建连接层 + 预算 fail-closed + LC3，rule 56/D-11/D-12③/D-13，v3.21.0 · **默认关闭**）。**硬约束层已覆盖核心数据/状态类；剩余引擎化项按 rule 64 优先级逐步补齐，判断类（架构评审/审查）永不脚本化。**

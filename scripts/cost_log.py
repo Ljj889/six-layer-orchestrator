@@ -71,10 +71,17 @@ def _rows(root: Path):
 
 
 def cmd_summary(root: Path):
+    """汇总 + 合规检查。
+
+    ★ v3.21.0 返修（§4.3 第 5 项反向 fixture）：原实现发现不合规行只**打印警告**、
+    退出码仍是 0 —— 也就是"**跑完了**"而不是"**报错了**"。Gate/CI 只看退出码，
+    于是"缺异常类型列"这个 rule 53 硬约束**永远拦不住任何东西**。
+    改为：**存在不合规行 → exit 1**（打印照旧）。无记录不算失败（空账本不是违规）。
+    """
     lines = _rows(root)
     if not lines:
         print("[cost_log] 无成本记录（cost_log.md 不存在或为空）")
-        return
+        return 0
     print(f"[cost_log] 共 {len(lines)} 条记录")
     bad = [l for l in lines if len(l.split("|")) < 6 or l.split("|")[5] in ("", " ")]
     if bad:
@@ -84,6 +91,11 @@ def cmd_summary(root: Path):
     from collections import Counter
     tiers = Counter(l.split("|")[2] for l in lines if len(l.split("|")) >= 3)
     print(f"  档位分布：{dict(tiers)}")
+    if bad:
+        print(f"[cost_log] ✗ 不合规 {len(bad)} 条 → exit 1（rule 53：缺第 6 列即不合规，"
+              "不许只打印警告就算过）", file=sys.stderr)
+        return 1
+    return 0
 
 
 def cmd_audit(root: Path):
@@ -190,7 +202,7 @@ def main():
                 rest[6] if len(rest) > 6 else "",
                 rest[7] if len(rest) > 7 else "")
     elif cmd == "summary":
-        cmd_summary(root)
+        sys.exit(cmd_summary(root))
     elif cmd == "audit":
         cmd_audit(root)
     elif cmd == "tail":

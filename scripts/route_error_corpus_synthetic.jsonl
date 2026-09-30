@@ -1,0 +1,11 @@
+{"_meta": true, "kind": "synthetic", "version": "v1.0", "note": "← 本文件是【合成样本】，不是真实 FAIL 语料。harness 见 kind=synthetic 一律返回 PENDING（exit 3），不得当回归评测已通过（共识 Q3 / D-14）。"}
+{"id": "S01", "text": "合约条款过严，需要重新确认", "expect": "scheduler"}
+{"id": "S02", "text": "type hint 缺失，请补类型标注", "expect": "programmer_N"}
+{"id": "S03", "text": "嗯……这个说不上来哪里不对", "expect": "human"}
+{"id": "S04", "text": "模块拆分粒度太粗，依赖环没解开", "expect": "architect"}
+{"id": "S05", "text": "合约条款冲突，同时 type hint 也缺失", "expect": "scheduler"}
+{"id": "S06", "text": "docstring 缺失、变量名不符命名规范", "expect": "programmer_N"}
+{"id": "S07", "text": "循环依赖 + 接口冲突，DAG 需要重画", "expect": "architect"}
+{"id": "S08", "text": "跨语言格式不一致，规范冲突", "expect": "scheduler"}
+{"id": "S09", "text": "今天天气不错", "expect": "human"}
+{"id": "S10", "text": "import 顺序乱了，缩进也不对", "expect": "programmer_N"}

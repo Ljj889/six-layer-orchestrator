@@ -510,6 +510,30 @@ class TestL1bTools(unittest.TestCase):
         self.assertEqual(res["target"], "human",
                          "改表后行为必须随之改变（证明规则真在外置表里）")
 
+    def test_route_error_eval_synthetic_must_not_be_green(self):
+        """收尾共识 Q3：合成语料**跑绿也必须非 0**（否则会被 CI/Gate 当通过 = 假绿）。"""
+        corpus = SCRIPTS_DIR / "route_error_corpus_synthetic.jsonl"
+        self.assertTrue(corpus.exists(), "合成语料必须随件交付")
+        rc, out = _cli_out(["run", "route_error", "--eval", str(corpus)], isolate=False)
+        self.assertEqual(rc, 3, f"合成语料必须 exit 3=PENDING（哪怕全绿）；实际 rc={rc}")
+        self.assertIn("corpus_kind=synthetic", out, "kind 必须在报告头出现（双信号一致）")
+        self.assertIn("PENDING", out)
+
+    def test_route_error_eval_rejects_missing_kind(self):
+        """反向 fixture：语料缺 kind → 必须 FAIL（防合成语料被当真实评测）。"""
+        with TmpProject() as box:
+            bad = box.path / "nokind.jsonl"
+            bad.write_text('{"id":"X","text":"a","expect":"human"}\n', encoding="utf-8")
+            rc, out = _cli_out(["run", "route_error", "--eval", str(bad)], isolate=False)
+            self.assertEqual(rc, 2, f"缺 kind 必须 rc=2；实际 rc={rc}")
+            self.assertIn("kind", out)
+
+    def test_route_error_pending_is_code_constant(self):
+        """PENDING 由**代码常量**决定，不由输出文本决定（防文本被跳过）。"""
+        re_mod = _load("route_error")
+        self.assertEqual(re_mod.REGRESSION_EVAL_STATUS, "pending")
+        self.assertEqual(re_mod.PENDING_RC, 3)
+
     # ── compress（rule 83 LC1/LC2）──
     def _bundle(self, **over):
         b = {
@@ -663,6 +687,71 @@ class TestL2LlmClient(unittest.TestCase):
             ledger = box.path / "llm_usage.jsonl"
             self.assertTrue(ledger.exists(), "降级必须留痕到 token 账本")
             self.assertIn("degraded", ledger.read_text(encoding="utf-8"))
+
+
+# ══════════════ ⑬ §4.3「已知坏样本回灌」剩余两项（本轮共识 Q4）══════════════
+class TestSection43Backfill(unittest.TestCase):
+    """§4.3 第 4、5 项：**每条检查项必须被一条已知坏样本证明过它真会红**（R-02）。
+    实测发现这两项在自测网里缺失（§4.3 第 4 项零覆盖 / 第 5 项只验了档位枚举不是缺列）。"""
+
+    def test_item4_write_conflict_same_file_two_modules(self):
+        """§4.3 第 4 项：造"两模块写同一文件"的预期产物清单 → 断言 FAIL。"""
+        with TmpProject() as box:
+            (box.path / "progress.json").write_text(json.dumps({
+                "modules": {}, "lifecycle": "INIT",
+                "expected_products": [
+                    {"wave": "W1", "module": "modA", "files": ["shared.txt", "a.txt"],
+                     "status": "pending"},
+                    {"wave": "W1", "module": "modB", "files": ["shared.txt", "b.txt"],
+                     "status": "pending"},
+                ]}, ensure_ascii=False), encoding="utf-8")
+            rc, out = _cli_out(["run", "six_layer_check", "write-conflict", str(box.path)],
+                               isolate=False)
+            self.assertEqual(rc, 1, f"两模块写同一文件必须 FAIL；实际 rc={rc}\n{out[-400:]}")
+            self.assertIn("shared.txt", out, "FAIL 信息应指名冲突文件")
+
+    def test_item4_negative_no_conflict_passes(self):
+        """反向对照：写集互斥时不得误报（防"检查器造噪音"）。"""
+        with TmpProject() as box:
+            (box.path / "progress.json").write_text(json.dumps({
+                "modules": {}, "lifecycle": "INIT",
+                "expected_products": [
+                    {"wave": "W1", "module": "modA", "files": ["a.txt"], "status": "pending"},
+                    {"wave": "W1", "module": "modB", "files": ["b.txt"], "status": "pending"},
+                ]}, ensure_ascii=False), encoding="utf-8")
+            rc = _cli(["run", "six_layer_check", "write-conflict", str(box.path)], isolate=False)
+            self.assertEqual(rc, 0, "写集互斥时应通过")
+
+    def test_item4_dispatch_check_missing_acceptance(self):
+        """§4.3 第 4 项另半：任务卡缺验收命令 → dispatch-check 必须 FAIL。"""
+        with TmpProject() as box:
+            card = box.path / "task-card.md"
+            card.write_text("## 任务\n写一个函数。\n", encoding="utf-8")
+            rc, out = _cli_out(["run", "six_layer_check", "dispatch-check", str(card)],
+                               isolate=False)
+            self.assertEqual(rc, 1, f"缺验收命令的任务卡必须 FAIL；实际 rc={rc}")
+            self.assertIn("验收", out)
+
+    def test_item5_cost_log_missing_column6_reports_and_exits_nonzero(self):
+        """§4.3 第 5 项：写一条缺第 6 列的行 → `summary` 必须**报不合规且非 0 退出**
+        （原实现只打印警告、退出码 0 = "跑完了"而非"报错了"）。"""
+        with TmpProject() as box:
+            (box.path / "cost_log.md").write_text(
+                "[2026-09-30 10:00]|programmer_1|lite|0.1|成功\n"        # 缺第 6 列
+                "[2026-09-30 10:01]|programmer_2|lite|0.1|成功|无\n",    # 合规
+                encoding="utf-8")
+            rc, out = _cli_out(["run", "cost_log", str(box.path), "summary"], isolate=False)
+            self.assertIn("不合规", out, "必须报出不合规")
+            self.assertEqual(rc, 1, f"有不合规行必须非 0 退出；实际 rc={rc}")
+
+    def test_item5_cost_log_clean_ledger_passes(self):
+        """反向对照：全部合规时不得 FAIL（且空账本也不算失败）。"""
+        with TmpProject() as box:
+            (box.path / "cost_log.md").write_text(
+                "[2026-09-30 10:00]|programmer_1|lite|0.1|成功|无\n", encoding="utf-8")
+            self.assertEqual(_cli(["run", "cost_log", str(box.path), "summary"], isolate=False), 0)
+            (box.path / "cost_log.md").unlink()
+            self.assertEqual(_cli(["run", "cost_log", str(box.path), "summary"], isolate=False), 0)
 
 
 # ══════════════ 汇总 ══════════════
