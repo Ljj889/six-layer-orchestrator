@@ -1,0 +1,109 @@
+{
+  "deepseek-chat": {
+    "request_id": "deepseek-chat",
+    "in_whitelist": false,
+    "http_status": 200,
+    "response_model": "deepseek-flash",
+    "response_name": "deepseek-flash",
+    "usage": {
+      "prompt_tokens": 5,
+      "completion_tokens": 8,
+      "total_tokens": 13,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "prompt_cache_hit_tokens": 0,
+      "prompt_cache_miss_tokens": 5
+    },
+    "same_model_echo": false,
+    "pass": false
+  },
+  "deepseek-flash": {
+    "request_id": "deepseek-flash",
+    "in_whitelist": true,
+    "http_status": 200,
+    "response_model": "deepseek-flash",
+    "response_name": "deepseek-flash",
+    "usage": {
+      "prompt_tokens": 31,
+      "completion_tokens": 8,
+      "total_tokens": 39,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 8
+      },
+      "prompt_cache_hit_tokens": 0,
+      "prompt_cache_miss_tokens": 31
+    },
+    "same_model_echo": true,
+    "pass": true
+  },
+  "deepseek-reasoner": {
+    "request_id": "deepseek-reasoner",
+    "in_whitelist": false,
+    "http_status": 200,
+    "response_model": "deepseek-flash",
+    "response_name": "deepseek-flash",
+    "usage": {
+      "prompt_tokens": 31,
+      "completion_tokens": 8,
+      "total_tokens": 39,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 8
+      },
+      "prompt_cache_hit_tokens": 0,
+      "prompt_cache_miss_tokens": 31
+    },
+    "same_model_echo": false,
+    "pass": false
+  },
+  "deepseek-v4-flash": {
+    "request_id": "deepseek-v4-flash",
+    "in_whitelist": false,
+    "http_status": 200,
+    "response_model": "deepseek-flash",
+    "response_name": "deepseek-flash",
+    "usage": {
+      "prompt_tokens": 31,
+      "completion_tokens": 8,
+      "total_tokens": 39,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      },
+      "prompt_cache_hit_tokens": 0,
+      "prompt_cache_miss_tokens": 31
+    },
+    "same_model_echo": false,
+    "pass": false
+  },
+  "deepseek-v4-pro": {
+    "request_id": "deepseek-v4-pro",
+    "in_whitelist": true,
+    "http_status": 200,
+    "response_model": "deepseek-v4-pro",
+    "response_name": "deepseek-v4-pro",
+    "usage": {
+      "prompt_tokens": 84,
+      "completion_tokens": 8,
+      "total_tokens": 92,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 8
+      },
+      "prompt_cache_hit_tokens": 0,
+      "prompt_cache_miss_tokens": 84
+    },
+    "same_model_echo": true,
+    "pass": true
+  }
+}

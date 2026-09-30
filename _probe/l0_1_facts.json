@@ -1,0 +1,39 @@
+{
+  "http_status": 200,
+  "whitelist": [
+    "deepseek-flash",
+    "deepseek-v4-pro"
+  ],
+  "per_model": {
+    "deepseek-flash": {
+      "name": "DeepSeek-V4.1-Flash",
+      "context_window": 1048576,
+      "max_output_tokens": 393216,
+      "effort_supported_levels": [
+        "low",
+        "high",
+        "max"
+      ],
+      "effort_default_level": "high",
+      "input_modalities": [
+        "text",
+        "image"
+      ]
+    },
+    "deepseek-v4-pro": {
+      "name": "DeepSeek-V4-Pro",
+      "context_window": 1048576,
+      "max_output_tokens": 393216,
+      "effort_supported_levels": [
+        "low",
+        "high",
+        "max"
+      ],
+      "effort_default_level": "high",
+      "input_modalities": [
+        "text"
+      ]
+    }
+  },
+  "source": "GET https://api.deepseek.com/models @ 2026-09-30 13:02:12"
+}

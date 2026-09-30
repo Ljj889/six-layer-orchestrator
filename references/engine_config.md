@@ -11,12 +11,12 @@
 
 | 键 | 类型 | 合法域 | 默认值 | 非法处置 | 依据 |
 |---|---|---|---|---|---|
-| `llm.model_whitelist` | array[string] | 现行白名单 `["deepseek-flash","deepseek-v4-pro"]` | 同左 | **FAIL** | 扫描 S4：`deepseek-chat`/`reasoner` 2026-07-24 停用；本机 `models.json` 的 `deepseek-v4-flash` **不在白名单** → 提交返回 200 但 `model` 被静默改回 |
-| `llm.reasoning_effort` | enum | `none` / `low` / `high` / `max` | `high` | **FAIL** | 官方：`temperature` 在 thinking mode **无效**（D-12③）；兼容映射 `minimal→low` **须显式登记** |
-| `llm.temperature` | number | `0.0`–`2.0` | `0.0` | **FAIL** | **thinking mode 下无效** —— 仅登记备案，**不得用作档位手段** |
+| `llm.model_whitelist` | array[string] | **实测白名单**（L0-1 · 2026-09-30）`["deepseek-flash","deepseek-v4-pro"]` | 同左 | **FAIL** | L0 实测：`deepseek-chat` / `deepseek-reasoner` / `deepseek-v4-flash` **返回 HTTP 200 但响应 `model` 被静默改回 `deepseek-flash`**（**不是 404**）→ 只看状态码 100% 漏判，必须双向核对 |
+| `llm.reasoning_effort` | enum | **`low` / `high` / `max`**（L0-1 实测 `effort.supported_levels`，**无 `none`**） | `high` | **FAIL** | L0-3 实测档位**确实生效**（`high` 三次 reasoning_tokens 完全一致=18，`low`/`max` 显著不同）；`none` 未在 supported_levels → **非法** |
+| `llm.temperature` | number | `0.0`–`2.0` | `0.0` | **FAIL** | **thinking mode 下无效** —— L0-3b 实测组内方差 > 组间差，**不能证明有效**；仅登记备案，**不得用作档位手段** |
 | `llm.request_timeout_sec` | integer | `1`–`600` | `120` | **FAIL** | 连接层超时（自建，D-11） |
 | `llm.max_retries` | integer | `0`–`5` | `2` | **FAIL** | 连接层退避（自建，先手写不用 tenacity） |
-| `budget.window_tokens` | integer > 0 | > 0 | `校准窗口值`（见下） | **FAIL** | **禁用 API 上限做分母** —— rule 83 先例：分母错 127 倍 → 压缩永不触发 |
+| `budget.window_tokens` | integer > 0 | > 0 | **校准窗口值**（**≠ 模型上限 1048576**） | **FAIL** | **禁用 API 上限做分母** —— rule 83 先例：分母错 127 倍 → 压缩永不触发。L0-1 实测 `context_window=1048576`，仅作**上限参考** |
 | `budget.per_wave_tokens` | integer > 0 | > 0 | `200000` | **FAIL** | Wave 级预算 |
 | `budget.alert_ratio` | number | `0.0`–`1.0` | `0.8` | **FAIL** | D-13 (b) 告警线 |
 | `budget.ask_human_ratio` | number | `0.0`–`1.0` | `1.0` | **FAIL** | D-13 (c) 超限问人线 |
@@ -30,6 +30,7 @@
 |---|---|---|
 | `minimal` | `low` | 官方兼容映射 —— **登记在此，不得靠猜** |
 | `medium` | `high` | 第三方 SDK 常见别名 |
+| `none` | **（无映射 → FAIL）** | L0-1 实测 `supported_levels` **不含 `none`** → 不许静默降级到 `low`，**必须显式报错** |
 | `max` | `max` | 直通 |
 
 > 未登记的值 → **FAIL**（不许静默取默认）。这就是 R-14 的解药：参数漂移**必须有 Traceback**。
@@ -41,7 +42,7 @@
 ```python
 # 手写约 20 行，零依赖（推荐）
 SCHEMA = {
-    "llm.reasoning_effort": {"type": "enum", "values": ["none", "low", "high", "max"]},
+    "llm.reasoning_effort": {"type": "enum", "values": ["low", "high", "max"]},  # L0-1 实测域
     "budget.window_tokens": {"type": "int", "min": 1},
     "budget.alert_ratio":   {"type": "float", "min": 0.0, "max": 1.0},
     # ...
@@ -90,6 +91,6 @@ def _check(key, value):
 
 ## 附：本文件自身的未验证声明
 
-- 白名单值来自扫描 S4（外部证据，`[事实]`，未在本机逐一往返验证 → L0-1 双向核对补验）。
-- `reasoning_effort` 合法域以**官方文档 + 本机 `models.json` 的 `supportedEfforts: ["high","max"]`** 为交集基准；L0-3 实测后按实测收紧。
-- 数值默认值（超时/重试/预算）为**工程默认**（`[假设]`），出现实测数据后按 R-13 由脚本自报更新。
+- 白名单、`supported_levels`、`context_window` 已由 **L0 探针真实往返实测**（`_probe/l0_report.md` + `_probe/l0_1_facts.json`），标 `[事实]`（2026-09-30）。
+- `reasoning_effort` 合法域以 **L0-1 实测 `supported_levels`** 为准（`low/high/max`）；**模型换代后必须重跑 `python _probe/l0_probe.py`**，本文件的数字一律以最近一次 L0 fixture 为准。
+- 数值默认值（超时/重试/预算/告警比）仍为**工程默认**（`[假设]`），出现实测数据后按 R-13 由脚本自报更新。

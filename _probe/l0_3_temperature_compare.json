@@ -1,0 +1,112 @@
+{
+  "model": "deepseek-flash",
+  "n": 3,
+  "arms": {
+    "0.0": [
+      {
+        "ok": true,
+        "usage": {
+          "prompt_tokens": 37,
+          "completion_tokens": 55,
+          "total_tokens": 92,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 53
+          },
+          "prompt_cache_hit_tokens": 0,
+          "prompt_cache_miss_tokens": 37
+        },
+        "content": "好"
+      },
+      {
+        "ok": true,
+        "usage": {
+          "prompt_tokens": 37,
+          "completion_tokens": 53,
+          "total_tokens": 90,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 51
+          },
+          "prompt_cache_hit_tokens": 0,
+          "prompt_cache_miss_tokens": 37
+        },
+        "content": "好"
+      },
+      {
+        "ok": true,
+        "usage": {
+          "prompt_tokens": 37,
+          "completion_tokens": 35,
+          "total_tokens": 72,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 33
+          },
+          "prompt_cache_hit_tokens": 0,
+          "prompt_cache_miss_tokens": 37
+        },
+        "content": "好"
+      }
+    ],
+    "2.0": [
+      {
+        "ok": true,
+        "usage": {
+          "prompt_tokens": 37,
+          "completion_tokens": 94,
+          "total_tokens": 131,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 92
+          },
+          "prompt_cache_hit_tokens": 0,
+          "prompt_cache_miss_tokens": 37
+        },
+        "content": "好"
+      },
+      {
+        "ok": true,
+        "usage": {
+          "prompt_tokens": 37,
+          "completion_tokens": 20,
+          "total_tokens": 57,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 18
+          },
+          "prompt_cache_hit_tokens": 0,
+          "prompt_cache_miss_tokens": 37
+        },
+        "content": "好"
+      },
+      {
+        "ok": true,
+        "usage": {
+          "prompt_tokens": 37,
+          "completion_tokens": 48,
+          "total_tokens": 85,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 46
+          },
+          "prompt_cache_hit_tokens": 0,
+          "prompt_cache_miss_tokens": 37
+        },
+        "content": "好"
+      }
+    ]
+  }
+}

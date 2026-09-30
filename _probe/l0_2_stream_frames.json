@@ -1,0 +1,58 @@
+{
+  "use_model": "deepseek-flash",
+  "nostream_http": 200,
+  "nostream_usage": {
+    "prompt_tokens": 39,
+    "completion_tokens": 22,
+    "total_tokens": 61,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 20
+    },
+    "prompt_cache_hit_tokens": 0,
+    "prompt_cache_miss_tokens": 39
+  },
+  "nostream_model": "deepseek-flash",
+  "nostream_finish_reason": "stop",
+  "nostream_has_reasoning_content": true,
+  "stream_http": 200,
+  "stream_line_count": 50,
+  "stream_data_lines": 25,
+  "stream_comment_lines": [],
+  "stream_has_DONE": true,
+  "stream_blank_between": 25,
+  "stream_usage_frames": [
+    {
+      "keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "system_fingerprint",
+        "usage"
+      ],
+      "usage": {
+        "prompt_tokens": 39,
+        "completion_tokens": 23,
+        "total_tokens": 62,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 21
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 39
+      },
+      "choices_len": 1
+    }
+  ],
+  "stream_last_usage_at_end": null,
+  "stream_usage_line_indices": [
+    46
+  ],
+  "stream_total_lines": 50
+}

@@ -448,8 +448,8 @@ Bug-Fix 轻量模式（rule 46）与"要不要编排"出口（单 Agent 直做�
 
 | 键 | 类型 | 合法域 | 非法处置 |
 |---|---|---|---|
-| `llm.model_whitelist` | array[string] | 现行白名单 `["deepseek-flash","deepseek-v4-pro"]`（`deepseek-chat`/`reasoner` 2026-07-24 已停用） | FAIL（提交前**双向核对**，防 200 假绿） |
-| `llm.reasoning_effort` | enum | `none` / `low` / `high` / `max` | FAIL（兼容映射如官方 `minimal→low` **须显式登记为已知等价类**） |
+| `llm.model_whitelist` | array[string] | **实测白名单**（L0-1）`["deepseek-flash","deepseek-v4-pro"]` | FAIL（提交前**双向核对**，防 200 假绿） |
+| `llm.reasoning_effort` | enum | **`low` / `high` / `max`**（L0-1 实测 `supported_levels`，**无 `none`**） | FAIL（兼容映射如官方 `minimal→low` **须显式登记为已知等价类**；`none` 无映射 → FAIL） |
 | `llm.temperature` | number | `0.0`–`2.0`（**thinking mode 下无效，仅登记备案**，不得作档位手段） | FAIL |
 | `budget.window_tokens` | integer > 0 | **校准窗口**值（**禁用 API 上限做分母**——rule 83 先例：分母错 127 倍 → 永不触发） | FAIL |
 | `budget.per_wave_tokens` | integer > 0 | 正整数 | FAIL |

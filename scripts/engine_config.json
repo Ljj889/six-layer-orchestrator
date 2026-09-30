@@ -1,17 +1,26 @@
 {
   "_note": "engine_config 机读镜像 —— canonical source = references/engine_config.md；两者不一致 = FAIL",
-  "_version": "v1.0",
+  "_version": "v1.1",
   "_updated": "2026-09-30",
+  "_probe": "L0 实测（_probe/l0_report.md · 2026-09-30）：白名单/supported_levels/context_window 均为真实往返值",
   "llm": {
     "model_whitelist": ["deepseek-flash", "deepseek-v4-pro"],
+    "model_facts": {
+      "deepseek-flash": {"name": "DeepSeek-V4.1-Flash", "context_window": 1048576, "max_output_tokens": 393216, "input_modalities": ["text", "image"]},
+      "deepseek-v4-pro": {"name": "DeepSeek-V4-Pro", "context_window": 1048576, "max_output_tokens": 393216, "input_modalities": ["text"]}
+    },
     "reasoning_effort": "high",
-    "reasoning_effort_allowed": ["none", "low", "high", "max"],
+    "reasoning_effort_allowed": ["low", "high", "max"],
     "reasoning_effort_compat_map": {
       "minimal": "low",
       "medium": "high",
       "max": "max"
     },
+    "reasoning_effort_reject": {
+      "none": "L0-1 实测 supported_levels 不含 none —— 必须显式 FAIL，不许静默降级到 low"
+    },
     "temperature": 0.0,
+    "temperature_note": "thinking mode 下无效；L0-3b 无法证明有效（组内方差 > 组间差）→ 仅登记备案，不得作档位手段",
     "request_timeout_sec": 120,
     "max_retries": 2
   },
