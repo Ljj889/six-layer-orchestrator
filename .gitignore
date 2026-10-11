@@ -9,5 +9,7 @@ archive/skill-history/
 # 状态板弱校验基线（append-only 运行产物）
 *.count.log
 
-# 状态板弱校验基线（append-only 运行产物）
-*.count.log
+# 演示 / 作品集素材（2026-10-09 新增：自测录屏 + 截图 + 日志）
+# 框架运行与三平台分发均不需要 → 排除出工作区状态（文件保留在磁盘）
+# 若日后确要入库：git add -f demo/<文件>
+demo/
