@@ -114,6 +114,64 @@ def _probe_py_launcher() -> dict:
     return {"ok": False, "version": None, "path": exe, "source": "broken"}
 
 
+def _try_bash(exe: str):
+    """真实往返：跑 `bash -c "echo BASH_OK"`。返回 (ok, version)。
+
+    与 `_probe_node` 同硬线：**只认真能跑**——存在、在 PATH 上、有 --version，都不算证据。
+    """
+    _, rc = _run([exe, "-c", "echo BASH_OK"], timeout=15)
+    full = ""
+    try:
+        r = subprocess.run([exe, "-c", "echo BASH_OK"], capture_output=True, text=True,
+                           timeout=15, encoding="utf-8", errors="replace")
+        full = (r.stdout or "") + (r.stderr or "")
+    except Exception:
+        full = ""
+    if rc == 0 and "BASH_OK" in full:
+        ver, _ = _run([exe, "--version"])
+        m = re.search(r"(\d+\.\d+(?:\.\d+)?)", ver or "")   # "GNU bash, version 5.2.26(1)" → 5.2.26
+        return True, (m.group(1) if m else None)
+    return False, None
+
+
+def _bash_candidates():
+    """受管 / 常见 Git-for-Windows bash 的**绝对路径**候选（新→旧），yield Path。
+
+    为什么必须有候选回退（2026-10-15 实测，G-001 同族）：
+      Windows 的 `shutil.which("bash")` 会先命中 `C:\\WINDOWS\\system32\\bash.exe`——
+      那是 **WSL 启动器占位**：在 PATH 上，但本机无 WSL 发行版 → 跑不起来（blocked）。
+      而本机实际存在**两个真 bash**（PortableGit 受管目录、Git for Windows 安装目录），
+      只是不在 PATH 首位 → 不找回退就永远判 blocked（等于永久逃逸口，R-12）。
+    """
+    home = Path.home()
+    pg = home / ".workbuddy" / "binaries" / "PortableGit"
+    for base in (pg / "versions", pg):
+        if not base.is_dir():
+            continue
+        if base.name == "versions":
+            try:
+                subs = sorted((d for d in base.iterdir() if d.is_dir()),
+                              key=lambda d: d.name, reverse=True)
+            except OSError:
+                subs = []
+            for d in subs:
+                yield d / "bin" / "bash.exe"
+        else:
+            yield base / "bin" / "bash.exe"
+    # 由 PATH 上的 git.exe 反推 Git for Windows 根：<root>/cmd/git.exe → <root>/bin/bash.exe
+    git = shutil.which("git")
+    if git:
+        try:
+            root = Path(git).resolve().parent.parent
+            yield root / "bin" / "bash.exe"
+            yield root / "usr" / "bin" / "bash.exe"
+        except OSError:
+            pass
+    for p in ("C:/Program Files/Git/bin/bash.exe",
+              "C:/Program Files (x86)/Git/bin/bash.exe"):
+        yield Path(p)
+
+
 def _probe_bash() -> dict:
     """bash 三态探针（v3.21.0 新增 · D-09 / R-12）。
 
@@ -125,25 +183,47 @@ def _probe_bash() -> dict:
 
     实测本机：`shutil.which('bash')` 能找到 Windows 的 WSL 启动器（`system32\\bash.exe`），
     但 `bash -c "echo BASH_OK"` 无输出 → **blocked**，不是 missing。
+
+    2026-10-15 取新（本机实测）：`shutil.which("bash")` 命中的是 `C:\\WINDOWS\\system32\\bash.exe`
+    （WSL 占位，**blocked**），但本机真 bash 有两个且可用（PortableGit 受管目录 / Git for Windows
+    安装目录，GNU bash 5.3.15）→ 本探针改为 **PATH 优先 + 候选回退**，回退命中记 `source="fallback"`。
+    三态语义不变：只有在 PATH 与全部候选**都跑不起来**时才是 blocked；**一个都没找到**才是 missing。
     """
+    tried = []
     exe = shutil.which("bash")
-    if not exe:
-        return {"ok": False, "state": "missing", "path": None, "version": None,
-                "source": "missing"}
-    out, rc = _run([exe, "-c", "echo BASH_OK"], timeout=15)
-    full = ""
-    try:
-        r = subprocess.run([exe, "-c", "echo BASH_OK"], capture_output=True, text=True,
-                           timeout=15, encoding="utf-8", errors="replace")
-        full = (r.stdout or "") + (r.stderr or "")
-    except Exception:
-        full = ""
-    if rc == 0 and "BASH_OK" in full:
-        ver, _ = _run([exe, "--version"])
-        m = re.search(r"(\d+\.\d+(?:\.\d+)?)", ver or "")   # "GNU bash, version 5.2.26(1)" → 5.2.26
-        return {"ok": True, "state": "ok", "path": exe,
-                "version": m.group(1) if m else None, "source": "path"}
-    return {"ok": False, "state": "blocked", "path": exe, "version": None, "source": "blocked"}
+    if exe:
+        ok, ver = _try_bash(exe)
+        if ok:
+            return {"ok": True, "state": "ok", "path": exe, "version": ver, "source": "path"}
+        tried.append(exe)
+    for cand in _bash_candidates():
+        sp = str(cand)
+        if sp in tried:
+            continue
+        try:
+            if not cand.is_file():
+                continue
+        except OSError:
+            continue
+        ok, ver = _try_bash(sp)
+        if ok:
+            return {"ok": True, "state": "ok", "path": sp, "version": ver,
+                    "source": "fallback"}
+        tried.append(sp)
+    if tried:
+        return {"ok": False, "state": "blocked", "path": tried[0], "version": None,
+                "source": "blocked"}
+    return {"ok": False, "state": "missing", "path": None, "version": None,
+            "source": "missing"}
+
+
+def probe_bash() -> dict:
+    """公开入口：bash 三态探针的唯一实现（禁止各处自己 `shutil.which("bash")`——R-014：
+
+    一处信息散落多边 = 漏改静默。`six_layer_check.py` 的 `.sh` 语法用例必须走本函数，
+    否则"探针已支持候选回退、用例却仍只认 PATH"会形成新的静默分叉。
+    """
+    return _probe_bash()
 
 
 def probe() -> dict:
@@ -165,8 +245,12 @@ def render(p: dict) -> str:
     if pl["source"] in ("broken", "missing"):
         lines.append(f"[PROBE] py_launcher={pl['source']}")
     b = p["bash"]
-    lines.append(f"[PROBE] bash={b['state']} path={b['path'] or '-'} version={b['version'] or '-'}")
-    if b["state"] == "missing":
+    lines.append(f"[PROBE] bash={b['state']} path={b['path'] or '-'} "
+                 f"version={b['version'] or '-'} source={b.get('source', '-')}")
+    if b["state"] == "ok" and b.get("source") == "fallback":
+        lines.append("→ bash 取自候选回退：PATH 上的 bash 是坏入口（WSL 占位 / 沙箱拦），"
+                     "本次用真 bash 跑（G-001 同族：PATH 指向坏入口）")
+    elif b["state"] == "missing":
         lines.append("→ bash=missing：本机**不存在** bash → `.sh` 检查显式标 `[不可测·环境缺失]`"
                      "（D-09：不存在≠跳过，记未验证，不记 PASS）")
     elif b["state"] == "blocked":

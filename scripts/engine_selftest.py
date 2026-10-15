@@ -235,20 +235,46 @@ class TestKnownRedFixtures(unittest.TestCase):
                                  f"{mod} 不该再直接写目标文件")
 
     def test_bash_tristate_missing_vs_blocked(self):
-        """反向 fixture：探针必须能区分 missing 与 blocked（伪造两种坏样本）。"""
+        """反向 fixture：探针必须能区分三态（伪造坏样本），且"候选回退"只认真能跑的 bash。
+
+        2026-10-15 扩（B 任务 · bash=blocked 根因）：原用例只伪造 PATH 上两种坏样本，未覆盖
+        **本机真实故障形态**——"PATH 上是坏入口（WSL 占位），候选里有真 bash"。三条并存，缺一条
+        就会出现"探针已支持回退、用例却只认 PATH"的静默分叉（R-014）：
+          ① PATH 无 + 候选空           → missing
+          ② PATH 坏 + 候选全跑不起来    → blocked（R-12：存在却跳过 = 永久逃逸口）
+          ③ PATH 坏 + 候选里有一个能跑  → ok + source="fallback"
+        """
         rp = _load("runtime_probe")
-        real_which = rp.shutil.which
-        real_run = rp._run
+        real_which, real_run, real_cands = rp.shutil.which, rp._run, rp._bash_candidates
+        box = tempfile.TemporaryDirectory(prefix="sl_bash_")
         try:
-            rp.shutil.which = lambda n: None                      # 坏样本 1：不存在
-            self.assertEqual(rp._probe_bash()["state"], "missing")
-            rp.shutil.which = lambda n: "X:/fake/bash.exe"        # 坏样本 2：存在但跑不起来
+            # ① missing：PATH 上无 bash，候选也为空 → 本机"根本没有"
+            rp.shutil.which = lambda n: None
+            rp._bash_candidates = lambda: []
+            self.assertEqual(rp.probe_bash()["state"], "missing")
+
+            # ② blocked：PATH 上有 bash 但跑不起来，且候选全跑不起来
+            rp.shutil.which = lambda n: "X:/fake/bash.exe"
             rp._run = lambda cmd, timeout=10: ("", -1)
-            self.assertEqual(rp._probe_bash()["state"], "blocked")
-        finally:
-            rp.shutil.which = real_which
+            rp._bash_candidates = lambda: [Path(box.name) / "no-such-bash.exe"]
+            stuck = rp.probe_bash()
+            self.assertEqual(stuck["state"], "blocked")
+            self.assertNotEqual(stuck["state"], "missing",
+                                "存在却跑不起来 ≠ 不存在（D-09：三态不许合并）")
+
+            # ③ fallback：PATH 是坏入口，候选里的 bash 真能跑 → ok + source="fallback"
+            fake = Path(box.name) / "bash.bat"      # .bat 替身：只回 BASH_OK，不依赖本机真 bash
+            fake.write_text("@echo off\r\necho BASH_OK\r\n", encoding="ascii")
             rp._run = real_run
-        self.assertIn(rp._probe_bash()["state"], ("ok", "missing", "blocked"),
+            rp._bash_candidates = lambda: [fake]
+            fb = rp.probe_bash()
+            self.assertEqual(fb["state"], "ok",
+                             "候选回退命中「真能跑」的 bash，却仍判 blocked")
+            self.assertEqual(fb["source"], "fallback")
+        finally:
+            rp.shutil.which, rp._run, rp._bash_candidates = real_which, real_run, real_cands
+            box.cleanup()
+        self.assertIn(rp.probe_bash()["state"], ("ok", "missing", "blocked"),
                       "真实探针必须落在三态之一")
 
     def test_cli_semantics_goes_red_on_nonzero(self):

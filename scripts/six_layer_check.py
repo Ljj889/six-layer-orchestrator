@@ -1410,15 +1410,20 @@ def run_self_test(keep_tmp: bool = False) -> dict:
     #     bash blocked → **FAIL**（R-12：存在却跳过 = 永久逃逸口）
     #     有 shellcheck → 跑语义级检查
     #     无 shellcheck → 语法级 PASS + 另立一条 SKIP 显式标"语义未验证"
-    bash_exe = shutil.which("bash")
-    bash_state = "missing"
-    if bash_exe:
-        # ★ 必须用 shutil.which 解析出的**绝对路径**（2026-09-30 实测取证）：
-        # Windows 上裸 `bash` 会被解析到 `C:\Program Files\WSL\wsl.exe` 的 App Execution Alias
-        # （rc=1 + 乱码输出，且本机被沙箱 Program Blacklist 直接拦）；而 shutil.which("bash")
-        # 返回的是 PortableGit 的真 bash（rc=0）。裸名 vs 绝对路径 = 两种结果。
-        pr = _run_proc([bash_exe, "-c", "echo BASH_OK"])
-        bash_state = "ok" if "BASH_OK" in (pr.stdout or "") else "blocked"
+    # bash 解析唯一入口（2026-10-15 取新 · R-014）：必须走 runtime_probe.probe_bash()，
+    # **禁止本处自己 shutil.which("bash")**——否则"探针已支持候选回退、用例仍只认 PATH"
+    # 会形成新的静默分叉（本机实测：which 命中 system32\bash.exe 这个 WSL 占位即判 blocked）。
+    # 回退链：PATH 绝对路径 → PortableGit 受管目录 → 由 git.exe 反推 Git for Windows → 常见安装位；
+    # 判定只认 `bash -c "echo BASH_OK"` 真往返（裸 `bash` 会被解析到 WSL 的 App Execution Alias）。
+    bash_info = {}
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import runtime_probe as _rp_bash
+        bash_info = _rp_bash.probe_bash()
+    except Exception:
+        bash_info = {}
+    bash_exe = bash_info.get("path")
+    bash_state = bash_info.get("state") or "missing"
     if not sh.exists():
         add("sync_to_platforms.sh 语法检查", True, "脚本不存在", skip=True)
     elif bash_state == "missing":
