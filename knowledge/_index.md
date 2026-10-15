@@ -30,9 +30,11 @@
 | rules/R-011_project_reference_first.md | rule | active | 复用优先,项目内参照,检索序,重造轮子,交互渲染 | 改行为前先 grep 项目内已验证同类实现（拖拽/setBounds 两次重造轮子教训）；rule 64 检索序第一环=项目内参照（最廉先验），找不到才升经验库→网→复现 | 2026-09-05 |
 | rules/R-012_idempotent_import_visibility.md | rule | active | 幂等,配置注入,静默失效,首启导入,分发预置,验收清单,rule80 | 幂等导入必须留痕：跳过必打日志 + 字段级 skip(reason=user-set/default-equal/empty) + 版本化重导 + 交付标注"只对新档生效" + 直读设置表核对（2026-09-12 番茄宠物V2 preset/personalize 双命中） | 2026-09-12 |
 | framework-skills/real-source-repro.md | framework-skill | active | 复现,取证,最小样例,esbuild,私有函数,真实数据,rule41,rule82,rule73 | 真实源码函数 + 真实数据的最小复现手法：esbuild 转译**真实源文件片段**取私有函数，打印"实际发出去了什么"——禁复刻逻辑自测（2026-09-12 番茄宠物V2 嵌套标签定位 + 抓出僵尸分支） | 2026-09-12 |
+| rules/R-013_gitignore_whitelist_dryrun.md | rule | active | gitignore,白名单,静默入库,密钥泄漏,dry-run,构建产物,keystore | gitignore 白名单解锁=静默入库：只写 `!父目录/` 会连 keystore/缓存一起放行——**必须"逐级包含→再排除"链 + 提交前 `git add -n` dry-run 取证**（【通用基线】来源：伴学·CMD24窗 2026-10-09） | 2026-10-09 |
+| rules/R-014_single_source_of_truth.md | rule | active | 单一真相源,交叉核查,静默失效,硬编码,多副本,断言,契约同步,COLS,改名 | 一处信息散落多边=漏改静默：①尽量收敛到单一真相源（文档层=规则归属总表/代码层=共用常量/契约层=禁手改生成物）②无法收敛时列全副本清单逐处核对 ③配硬校验（加列四处同步 CREATE_TABLE_SQL+MIGRATIONS+EXPECTED_COLUMNS+COLS）④改名先全库 grep（排除构建产物）（【通用基线】来源：伴学·CMD24窗 2026-10-09） | 2026-10-09 |
 
 ## 四桶说明
-- `rules/`：红线，注入 constitution 常驻（当前 R-001~R-012；R-007 僵尸能力 / R-008 类型门禁假绿 / R-009 可移除性 / R-010 构建配置静默失效 / R-011 项目内参照物优先 / R-012 幂等导入可见性——后四者属"看起来已验证其实没有"家族且都可 grep/断言硬校验）
+- `rules/`：红线，注入 constitution 常驻（当前 **R-001~R-014**；R-007 僵尸能力 / R-008 类型门禁假绿 / R-009 可移除性 / R-010 构建配置静默失效 / R-011 项目内参照物优先 / R-012 幂等导入可见性 / **R-013 gitignore 白名单静默入库** / **R-014 信息散落多边漏改静默**——后六者属"看起来已验证其实没有"家族且都可 grep/断言硬校验；**R-013/R-014 标注【通用基线】，来源：伴学·CMD24窗 2026-10-09**）
 - `decisions/`：ADR，注入 plan 作 rationale（当前 ADR-001~003）
 - `framework-skills/`：可调用能力（当前：experience-distiller 经验蒸馏 · ts-smoke-harness 无测试框架冒烟 · real-source-repro 真实源码函数复现）
 - `guides/`：可选操作手册（当前：G-001 环境坑 v1.4 · G-002 效果类验收 v2 · G-003 子Agent通道 v1.1 · G-004 monorepo构建 · G-005 web自动化 · G-006 框架合规检查 v2）
