@@ -19,6 +19,11 @@
 #        2) root-level files (SKILL.md + CHANGELOG.md) are now distributed and verified
 #           by MD5/existence (before, only SKILL.md was checked; adding CHANGELOG.md
 #           would have gone red because the target lacked it).
+# v1.4 - 2026-10-15 - R-015 landing (hint only): print "run -Check first; not all green = no sync".
+#         Also CORRECTS the v1.0 note above: a usable bash DOES exist on this machine
+#         (PortableGit managed dir + Git for Windows at D:\apps\Git, GNU bash 5.3.15);
+#         what failed was PATH resolution (system32\bash.exe is the WSL stub).
+#         Root cause + fix: commit B + knowledge/rules/R-015_distribution_precheck.md.
 #
 # Usage:
 #   powershell -File sync_to_platforms.ps1            # sync all three targets
@@ -191,6 +196,16 @@ if ($Check) {
   }
   exit 0
 }
+
+# ---- R-015 hard discipline (2026-10-15): always run -Check before syncing; not all green = no sync ----
+# Hint only - no change to decisions or exit codes. Fail-closed enforcement is scheduled (A3 P2-1).
+# This file is ASCII-only on purpose; keep any addition English.
+Write-Host ''
+Write-Host 'R-015: run the read-only check first ->  sync_to_platforms.ps1 -Check'
+Write-Host '       If it is not all green, DO NOT sync.'
+Write-Host '       Sync-One removes each target dir first (Remove-Item -Recurse -Force):'
+Write-Host '       files that exist ONLY in a platform copy are deleted silently.'
+Write-Host ''
 
 if ($Target) {
   if (-not $targets.Contains($Target)) {

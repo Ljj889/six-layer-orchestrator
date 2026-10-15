@@ -10,6 +10,10 @@
 #                     ② 新增根级文件分发（SKILL.md + CHANGELOG.md）+ 根级文件 MD5/存在性校验
 #                     （以前只校验 SKILL.md；新增 CHANGELOG.md 会因"目标没有"而报红）。
 #
+# v1.3 · 2026-10-15 · R-015 落地（监理裁决"立刻生效"）：入口加硬提示
+#                     「分发前必跑 --check，非全绿不许发」——仅提示，不改判定/退出码；
+#                     前置 fail-closed 化 = A3 P2-1（下一轮）。
+#
 # 用法：
 #   ./sync_to_platforms.sh            # 同步全部三处
 #   ./sync_to_platforms.sh wb         # 只同步 WorkBuddy
@@ -157,6 +161,11 @@ if [[ "${1:-}" == "--check" ]]; then
   done
   exit 0
 fi
+
+# ---- R-015 硬纪律（2026-10-15 · 监理裁决"立刻生效"）：分发前必跑 --check，非全绿不许发 ----
+# 本处只提示，不改判定/退出码（前置 fail-closed = A3 P2-1，下一轮）。
+echo "⚠ R-015：分发前应先跑只读校验 —— ./sync_to_platforms.sh --check（非全绿不许发）。"
+echo "         本脚本 sync_one 是【先 rm -rf 后 cp -r】：目标副本独有文件会被静默删除。"
 
 if [[ -n "${1:-}" ]]; then
   key="$1"

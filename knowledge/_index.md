@@ -32,9 +32,10 @@
 | framework-skills/real-source-repro.md | framework-skill | active | 复现,取证,最小样例,esbuild,私有函数,真实数据,rule41,rule82,rule73 | 真实源码函数 + 真实数据的最小复现手法：esbuild 转译**真实源文件片段**取私有函数，打印"实际发出去了什么"——禁复刻逻辑自测（2026-09-12 番茄宠物V2 嵌套标签定位 + 抓出僵尸分支） | 2026-09-12 |
 | rules/R-013_gitignore_whitelist_dryrun.md | rule | active | gitignore,白名单,静默入库,密钥泄漏,dry-run,构建产物,keystore | gitignore 白名单解锁=静默入库：只写 `!父目录/` 会连 keystore/缓存一起放行——**必须"逐级包含→再排除"链 + 提交前 `git add -n` dry-run 取证**（【通用基线】来源：伴学·CMD24窗 2026-10-09） | 2026-10-09 |
 | rules/R-014_single_source_of_truth.md | rule | active | 单一真相源,交叉核查,静默失效,硬编码,多副本,断言,契约同步,COLS,改名 | 一处信息散落多边=漏改静默：①尽量收敛到单一真相源（文档层=规则归属总表/代码层=共用常量/契约层=禁手改生成物）②无法收敛时列全副本清单逐处核对 ③配硬校验（加列四处同步 CREATE_TABLE_SQL+MIGRATIONS+EXPECTED_COLUMNS+COLS）④改名先全库 grep（排除构建产物）（【通用基线】来源：伴学·CMD24窗 2026-10-09） | 2026-10-09 |
+| rules/R-015_distribution_precheck.md | rule | active | 分发,平台副本,副本领先,真相源,先取证后覆盖,非全绿不许发,rm-rf,静默删除,dry-run | 分发前必跑 `--check`、非全绿不许发：`sync_one` 是"先 rm -rf 后 cp"，目标副本独有文件被静默删除，且新增知识资产不改版本号 → 版本领先检测不触发（2026-10-09 R-013/R-014 副本领先事故的护栏；A3 P2-1 前置 fail-closed 为后续） | 2026-10-15 |
 
 ## 四桶说明
-- `rules/`：红线，注入 constitution 常驻（当前 **R-001~R-014**；R-007 僵尸能力 / R-008 类型门禁假绿 / R-009 可移除性 / R-010 构建配置静默失效 / R-011 项目内参照物优先 / R-012 幂等导入可见性 / **R-013 gitignore 白名单静默入库** / **R-014 信息散落多边漏改静默**——后六者属"看起来已验证其实没有"家族且都可 grep/断言硬校验；**R-013/R-014 标注【通用基线】，来源：伴学·CMD24窗 2026-10-09**）
+- `rules/`：红线，注入 constitution 常驻（当前 **R-001~R-015**；R-007 僵尸能力 / R-008 类型门禁假绿 / R-009 可移除性 / R-010 构建配置静默失效 / R-011 项目内参照物优先 / R-012 幂等导入可见性 / **R-013 gitignore 白名单静默入库** / **R-014 信息散落多边漏改静默** / **R-015 分发前必跑 --check 非全绿不许发**——后六者属"看起来已验证其实没有"家族且都可 grep/断言硬校验；**R-013/R-014 标注【通用基线】，来源：伴学·CMD24窗 2026-10-09**；**R-015 来源：2026-10-15 R-013/R-014 副本领先事故复盘（监理裁决"立刻生效"）**）
 - `decisions/`：ADR，注入 plan 作 rationale（当前 ADR-001~003）
 - `framework-skills/`：可调用能力（当前：experience-distiller 经验蒸馏 · ts-smoke-harness 无测试框架冒烟 · real-source-repro 真实源码函数复现）
 - `guides/`：可选操作手册（当前：G-001 环境坑 v1.4 · G-002 效果类验收 v2 · G-003 子Agent通道 v1.1 · G-004 monorepo构建 · G-005 web自动化 · G-006 框架合规检查 v2）
